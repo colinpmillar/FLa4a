@@ -98,3 +98,20 @@ savePng("recruitment", {
           xlab = "", ylab = "recruits (thousands)", main = "Recruitment submodels")
   legend("topright", colnames(recs), col = fitCols(ncol(recs)), lwd = 2, bty = "n")
 })
+
+#---------------------------------------------------------------------
+# 4. Initial numbers: the population at age in the first year
+#---------------------------------------------------------------------
+# The n1model describes log numbers at age (after the recruitment age) in
+# the first year. Only a few cohorts inform it, so it is usually kept simple.
+# plotN1() shows the fitted values with 95% intervals and, for reference,
+# the numbers in equilibrium with the first year's total mortality.
+n1models <- list(
+  "factor(age)"    = ~ factor(age),
+  "s(age, k = 4)"  = ~ s(age, k = 4),
+  "s(age, k = 3)"  = ~ s(age, k = 3)
+)
+n1fits <- lapply(n1models, function(nm) sca(ple4, indices, fmodel = fm, qmodel = qmod, n1model = nm))
+print(fitTable(n1fits))
+
+savePng("initial-numbers", plotN1(n1fits, ple4, indices, main = "n1model comparison"))

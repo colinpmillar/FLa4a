@@ -16,7 +16,7 @@ from `helpers.R` does the same.
 | script | shows |
 |--------|-------|
 | `01-getting-started.R` | a first fit, results as FLQuants, `stock + fit`, summary plots, index fits, residuals, AIC/BIC |
-| `02-smoothers.R` | `s()`, `te()`, `ti()` in the F, catchability and recruitment submodels; how `k` trades flexibility against parameters |
+| `02-smoothers.R` | `s()`, `te()`, `ti()` in the F, catchability, recruitment and initial-numbers submodels (`plotN1()`); how `k` trades flexibility against parameters |
 | `03-covariates.R` | year-only and age x year covariates via `covar`; linear, smooth and varying-coefficient effects; `breakpts()` |
 | `04-stock-recruitment.R` | Beverton-Holt, Ricker, hockey stick and geomean relationships; fitted curves; the effect of the CV |
 | `05-simulate-covariates.R` | `predict()` and `simulate()` from a covariate model: predictive checks, covariate scenarios (including per-simulation covariates), parameter uncertainty, and refitting simulated data to check an effect is recoverable |

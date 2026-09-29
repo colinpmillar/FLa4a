@@ -149,3 +149,37 @@ plotEnvelope <- function(sims, age = 1, obs = NULL, main = "", ylab = "") {
          lwd = c(rep(2, length(sims)), NA), pch = c(rep(NA, length(sims)), if (!is.null(obs)) 16),
          bty = "n", cex = 0.8)
 }
+
+# Numbers at age in the first year (the n1model) with 95% intervals, for one
+# or more fits (a named list), on a log scale. The dashed line shows the
+# numbers in equilibrium with the first year's total mortality (Z = F + M) of
+# the first fit, starting from its numbers at the second age; the last age is
+# a plus group.
+plotN1 <- function(fits, stock, indices, main = "Numbers in the first year") {
+  if (is(fits, "a4aFit")) fits <- list(fit = fits)
+  cols <- fitCols(length(fits))
+  cis <- lapply(fits, derivedCI, stock = stock, indices = indices, quantities = "n1")
+  f1 <- fits[[1]]
+  y1 <- dimnames(stock.n(f1))$year[1]
+  z <- c(harvest(f1)[-1, y1] + m(stock)[-1, y1])
+  eq <- cis[[1]]$estimate[1] * exp(-cumsum(c(0, z[-length(z)])))
+  eq[length(eq)] <- eq[length(eq)] / (1 - exp(-z[length(z)]))
+  ages <- cis[[1]]$age
+  shift <- 0.12 * (seq_along(fits) - (length(fits) + 1) / 2)  # dodge the fits
+  ylim <- range(eq, unlist(lapply(cis, function(ci) c(ci$lower, ci$upper))))
+  op <- par(mar = c(4, 5.5, 3, 1))
+  on.exit(par(op))
+  plot(NA, xlim = range(ages) + c(-0.4, 0.4), ylim = ylim, log = "y", yaxt = "n",
+       xlab = "age", ylab = "", main = main)
+  axis(2, at = axTicks(2), labels = format(axTicks(2), big.mark = ",", scientific = FALSE), las = 1)
+  mtext(paste("numbers in", y1), 2, line = 4.3)
+  lines(ages, eq, lty = 2, col = "grey40")
+  for (i in seq_along(cis)) {
+    x <- cis[[i]]$age + shift[i]
+    arrows(x, cis[[i]]$lower, x, cis[[i]]$upper, angle = 90, code = 3, length = 0.03, col = cols[i])
+    points(x, cis[[i]]$estimate, pch = 19, col = cols[i])
+  }
+  legend("topright", c(names(fits), "equilibrium Z"), col = c(cols, "grey40"),
+         pch = c(rep(19, length(fits)), NA), lty = c(rep(NA, length(fits)), 2), bty = "n")
+  invisible(cis)
+}
