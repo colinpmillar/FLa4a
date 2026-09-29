@@ -1,0 +1,36 @@
+Package: FLa4a
+Type: Package
+Title: A Simple and Robust Statistical Catch at Age Model
+Version: 2.0.0.9000
+Authors@R: c(
+  person("Colin P.", "Millar", email = "colin.millar@ices.dk", role = "aut"),
+  person("Ernesto", "Jardim", email = "ernesto.jardim@gmail.com", role = c("aut", "cre")))
+Description: A simple and robust statistical catch-at-age model that is
+    specifically designed for stocks with intermediate levels of data quantity
+    and quality. This is a minimal implementation in which the model is
+    written in R and differentiated with 'RTMB'.
+License: EUPL
+Depends:
+  R (>= 4.1),
+  FLCore (>= 2.6.15)
+Imports:
+  methods,
+  stats,
+  Matrix,
+  mgcv,
+  RTMB
+Suggests:
+  testthat (>= 3.0.0)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Config/testthat/edition: 3
+Collate:
+  'FLa4a-package.R'
+  'formula.R'
+  'srmodels.R'
+  'defaults.R'
+  'data.R'
+  'model.R'
+  'a4aFit-class.R'
+  'sca.R'
+RoxygenNote: 7.3.1
