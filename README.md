@@ -58,6 +58,20 @@ smoothing(fit)   # log smoothing parameters
 fitSumm(fit)     # includes the effective degrees of freedom of each smoother
 ```
 
+### Simulated data with known truth
+
+```r
+# data sets that test one aspect of the model each, with their submodels:
+# "simple", "smooth", "covariate", "sr", "biomass"
+d <- simScenario("simple", nsim = 100, seed = 1)
+fit <- do.call(sca, c(list(iter(d$stock, 1), FLIndices(lapply(d$indices, iter, 1))), d$models))
+ci <- derivedCI(fit, iter(d$stock, 1), FLIndices(lapply(d$indices, iter, 1)))  # SSB, Fbar, R, F
+d$truth$ssb                                                             # the true values
+```
+
+`simStock()` builds custom data sets (selectivity, F trajectory, recruitment
+model, surveys, covariate effects).
+
 ### Simulation with covariates
 
 ```r
@@ -74,8 +88,9 @@ refit <- sca(sim$stock, sim$indices, covar = list(temp = temp),
              fmodel = fit@models$fmodel, qmodel = fit@models$qmodel)
 ```
 
-See [`examples/`](examples) for worked examples with plots: getting started,
-smoothers, covariates and stock-recruitment models.
+See [`src/examples/`](src/examples) for worked examples with plots: getting started,
+smoothers, covariates, stock-recruitment models, simulation, penalised
+smoothers, confidence interval coverage and simulated scenarios.
 
 ## Code layout
 
@@ -87,6 +102,8 @@ smoothers, covariates and stock-recruitment models.
 | `R/formula.R` | submodel designs: formula to design matrix (mgcv smoothers supported), re-evaluable at new data with the fitted basis |
 | `R/srmodels.R` | stock-recruitment models: `bevholt()`, `ricker()`, `hockey()`, `geomean()`, `bevholtSV()` |
 | `R/simulate.R` | `predict()` and `simulate()`: the fitted model at new covariate values, with observation error |
+| `R/uncertainty.R` | `derivedCI()`: delta-method intervals for SSB, Fbar, recruitment and F |
+| `R/simdata.R` | `simStock()`, `simSurvey()`, `simScenario()`: simulated data with known truth |
 | `R/defaults.R` | default submodels |
 | `R/a4aFit-class.R` | result class, accessors, `logLik()`, `FLStock + a4aFit` |
 
@@ -127,7 +144,7 @@ bases dense (keeping them sparse is a possible next step). With a single
 penalised `te(age, year)` F surface, the marginal likelihood for ple4
 favours very little smoothing across ages, so F follows the catch data
 closely; separable main effects plus a penalised `ti(age, year)`
-interaction are faster and better behaved (see `examples/06-penalised-smoothers.R`).
+interaction are faster and better behaved (see `src/examples/06-penalised-smoothers.R`).
 
 ## License
 

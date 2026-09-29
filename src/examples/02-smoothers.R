@@ -8,10 +8,10 @@
 # (A later iteration will estimate penalised smoothers, where the amount of
 # smoothing is estimated rather than fixed by k.)
 #
-# Run from the repository root:  source("examples/02-smoothers.R")
+# Run from the repository root:  source("src/examples/02-smoothers.R")
 
 library(FLa4a)
-source("examples/helpers.R")
+source("src/examples/helpers.R")
 outDir <- exampleDir("02-smoothers")  # plots are saved here
 
 data(ple4)

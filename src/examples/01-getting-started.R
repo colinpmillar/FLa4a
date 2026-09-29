@@ -3,10 +3,10 @@
 # Fit the a4a statistical catch-at-age model to North Sea plaice (ple4),
 # look at the results and check the fit to the data.
 #
-# Run from the repository root:  source("examples/01-getting-started.R")
+# Run from the repository root:  source("src/examples/01-getting-started.R")
 
 library(FLa4a)
-source("examples/helpers.R")
+source("src/examples/helpers.R")
 outDir <- exampleDir("01-getting-started")  # plots are saved here
 
 #---------------------------------------------------------------------

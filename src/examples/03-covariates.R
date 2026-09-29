@@ -5,10 +5,10 @@
 # (e.g. an environmental index) or by age and year (e.g. mean weight at age).
 # It can enter linearly, through a smoother, or as a varying coefficient.
 #
-# Run from the repository root:  source("examples/03-covariates.R")
+# Run from the repository root:  source("src/examples/03-covariates.R")
 
 library(FLa4a)
-source("examples/helpers.R")
+source("src/examples/helpers.R")
 outDir <- exampleDir("03-covariates")  # plots are saved here
 
 data(ple4)

@@ -12,11 +12,11 @@
 #   sp.method = "laplace"  RTMB's Laplace approximation, maximised directly
 # P-splines (bs = "ps") give sparse bases and penalties.
 #
-# Run from the repository root:  source("examples/06-penalised-smoothers.R")
+# Run from the repository root:  source("src/examples/06-penalised-smoothers.R")
 # (takes about 1-2 minutes)
 
 library(FLa4a)
-source("examples/helpers.R")
+source("src/examples/helpers.R")
 outDir <- exampleDir("06-penalised-smoothers")  # plots are saved here
 
 data(ple4)

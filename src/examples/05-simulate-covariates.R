@@ -10,11 +10,11 @@
 # their fitted bases, so smoothers of covariates are evaluated at the new
 # values with the same knots and coefficients.
 #
-# Run from the repository root:  source("examples/05-simulate-covariates.R")
+# Run from the repository root:  source("src/examples/05-simulate-covariates.R")
 # (takes about 1-2 minutes, mostly the refits in part 4)
 
 library(FLa4a)
-source("examples/helpers.R")
+source("src/examples/helpers.R")
 outDir <- exampleDir("05-simulate-covariates")  # plots are saved here
 
 data(ple4)

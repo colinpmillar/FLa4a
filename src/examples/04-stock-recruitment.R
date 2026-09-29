@@ -5,10 +5,10 @@
 # year but is penalised towards the curve with a lognormal error of the
 # given CV: a small CV forces recruitment close to the curve.
 #
-# Run from the repository root:  source("examples/04-stock-recruitment.R")
+# Run from the repository root:  source("src/examples/04-stock-recruitment.R")
 
 library(FLa4a)
-source("examples/helpers.R")
+source("src/examples/helpers.R")
 outDir <- exampleDir("04-stock-recruitment")  # plots are saved here
 
 data(ple4)

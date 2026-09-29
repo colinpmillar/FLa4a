@@ -1,11 +1,11 @@
 # Plotting helpers shared by the examples (base graphics only).
-# source("examples/helpers.R")
+# source("src/examples/helpers.R")
 
 options(scipen = 10)  # plain numbers on axes
 
-# Folder for an example's plots, examples/<name>/, created if needed.
+# Folder for an example's plots, src/examples/<name>/, created if needed.
 exampleDir <- function(name) {
-  dir <- file.path("examples", name)
+  dir <- file.path("src", "examples", name)
   dir.create(dir, showWarnings = FALSE, recursive = TRUE)
   dir
 }
