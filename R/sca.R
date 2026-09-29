@@ -44,11 +44,23 @@
 #'   then refines the estimates by maximising RTMB's Laplace approximation of
 #'   the marginal likelihood directly, which is exact to that approximation
 #'   but can be much slower for large tensor-product smoothers.
+#' @param method `"ML"` (default) estimates all parameters by maximum
+#'   likelihood. `"REML"` estimates the observation variance parameters (the
+#'   `vmodel` coefficients) and any smoothing parameters by restricted
+#'   maximum likelihood: all other coefficients are integrated out with the
+#'   Laplace approximation (flat priors on the unpenalised ones), starting
+#'   from the ML fit. Maximum likelihood underestimates the observation
+#'   variances, the more so the more coefficients each fleet's data have to
+#'   support, which makes confidence intervals too narrow; REML corrects for
+#'   this. The likelihoods (and so `AIC()`) of REML fits with different
+#'   submodels for F, catchability, initial numbers or recruitment are not
+#'   comparable: use ML for model selection.
 #' @param verbose logical, print optimiser output.
 #' @param control list of control options passed to [stats::nlminb()].
 #' @return an [a4aFit-class] object. For penalised fits, `fitSumm()`
 #'   reports the effective degrees of freedom of each smoother (`edf:`), the
-#'   marginal negative log-likelihood (`nlogl:marginal`), and `nopar` counts
+#'   marginal negative log-likelihood (`nlogl:marginal`; the restricted
+#'   likelihood for REML fits), and `nopar` counts
 #'   unpenalised parameters plus the smoothers' effective degrees of freedom,
 #'   so that `AIC()` is a conditional AIC. The log smoothing parameters are in
 #'   `smoothing()`.
@@ -74,11 +86,12 @@ sca <- function(stock, indices,
                 n1model = defaultN1mod(stock),
                 vmodel = defaultVmod(stock, indices),
                 covar = NULL, fit = c("assessment", "MP"), center = TRUE,
-                penalise = FALSE, sp.method = c("efs", "laplace"),
+                penalise = FALSE, sp.method = c("efs", "laplace"), method = c("ML", "REML"),
                 verbose = FALSE, control = list()) {
 
   fit <- match.arg(fit)
   sp.method <- match.arg(sp.method)
+  method <- match.arg(method)
   penalise <- penaliseKeys(penalise)
   indices <- prepIndices(indices)
   covar <- as.list(covar)
@@ -100,7 +113,8 @@ sca <- function(stock, indices,
     data <- a4aData(stk, idx, fmodel = fmodel, qmodel = qmodel, vmodel = vmodel,
                     n1model = n1model, srmodel = srmodel, covar = lapply(covar, iterOf, i),
                     center = center, penalise = penalise)
-    res <- fitA4a(data, fit = fit, verbose = verbose, control = control, sp.method = sp.method)
+    res <- fitA4a(data, fit = fit, verbose = verbose, control = control, sp.method = sp.method,
+                  method = method)
     c(res, list(data = data, quants = predictQuants(res, data, stk, idx)))
   })
 
@@ -128,9 +142,10 @@ sca <- function(stock, indices,
                        dimnames = list(names(first$loglambda), iter = seq_len(nit))))
 
   penalised <- length(first$edf) > 0
+  marginal <- penalised || method == "REML"
   comps <- c(fleets, if (first$data$dat$srID > 0) "srr", if (penalised) "smooth")
   summNames <- c("nopar", "nlogl", "maxgrad", "nobs", "convergence", paste0("nlogl:", comps),
-                 if (penalised) c("nlogl:marginal", paste0("edf:", names(first$edf))))
+                 if (marginal) "nlogl:marginal", if (penalised) paste0("edf:", names(first$edf)))
   out@fitSumm <- matrix(NA_real_, length(summNames), nit, dimnames = list(summNames, iter = seq_len(nit)))
 
   for (i in seq_len(nit)) {
@@ -144,7 +159,7 @@ sca <- function(stock, indices,
     out@centering[, i] <- f$data$centering
     out@smoothing[, i] <- f$loglambda
     out@fitSumm[, i] <- c(f$nopar, f$nlogl, f$maxgrad, f$data$nobs, f$convergence,
-                          f$report$nllComp, if (penalised) c(f$objective, f$edf))
+                          f$report$nllComp, if (marginal) f$objective, if (penalised) f$edf)
   }
   units(out@harvest) <- "f"
   out

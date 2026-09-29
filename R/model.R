@@ -241,9 +241,14 @@ penaltyNll <- function(par, blocks) {
 # sp.method = "efs" this uses Fellner-Schall updates (fitSmoothing()); with
 # "laplace" the result is refined with RTMB's Laplace approximation, the
 # smoother coefficients being random effects (fitLaplace()).
+#
+# With method = "REML", the variance parameters (vpar) and smoothing
+# parameters then maximise the restricted likelihood, in which all other
+# coefficients are integrated out (fitREML()).
 fitA4a <- function(data, fit = "assessment", verbose = FALSE, control = list(),
-                   sp.method = c("efs", "laplace")) {
+                   sp.method = c("efs", "laplace"), method = c("ML", "REML")) {
   sp.method <- match.arg(sp.method)
+  method <- match.arg(method)
   dat <- data$dat
   ctrl <- utils::modifyList(list(eval.max = 1e4, iter.max = 1e4), control)
   penalised <- length(data$par$re) > 0
@@ -272,6 +277,15 @@ fitA4a <- function(data, fit = "assessment", verbose = FALSE, control = list(),
     }
   }
 
+  marginal <- NA_real_
+  if (method == "REML") {
+    rem <- fitREML(data, full, ctrl, verbose)
+    full <- rem$par
+    convergence <- max(convergence, rem$convergence)
+    maxgrad <- rem$maxgrad
+    marginal <- rem$objective
+  }
+
   pos <- data$colmap$pos
   coefs <- stats::setNames(full[pos], data$pnames)
   report <- obj$report(full)
@@ -279,7 +293,22 @@ fitA4a <- function(data, fit = "assessment", verbose = FALSE, control = list(),
 
   vcov <- NULL
   if (fit == "assessment") {
-    V <- tryCatch(chol2inv(chol(H)), error = function(e) NULL)
+    V <- if (method == "ML") {
+      tryCatch(chol2inv(chol(H)), error = function(e) NULL)
+    } else {
+      # REML: the coefficients' covariance is conditional on the variance
+      # parameters, which are not at a joint-likelihood optimum (so the joint
+      # Hessian need not be positive definite there); the variance
+      # parameters' covariance comes from the restricted likelihood
+      v <- which(names(obj$par)[bPos] == "vpar")
+      Vb <- tryCatch(chol2inv(chol(H[-v, -v, drop = FALSE])), error = function(e) NULL)
+      if (is.null(Vb) || is.null(rem$vcovVpar)) NULL else {
+        out <- matrix(0, length(bPos), length(bPos))
+        out[-v, -v] <- Vb
+        out[v, v] <- rem$vcovVpar
+        out
+      }
+    }
     if (is.null(V)) {
       warning("Hessian is not positive definite", call. = FALSE)
       vcov <- matrix(NA_real_, length(pos), length(pos))
@@ -295,20 +324,27 @@ fitA4a <- function(data, fit = "assessment", verbose = FALSE, control = list(),
   nlogl <- sum(if (penalised) comps[-length(comps)] else comps)
 
   edf <- numeric(0)
-  marginal <- NA_real_
   if (penalised) {
     # Hessian of the random effects, conditional on the other parameters
     re <- match(rePositions(data), bPos)
     Hr <- H[re, re, drop = FALSE]
-    Vr <- solve(Hr)
+    Vr <- tryCatch(solve(Hr), error = function(e) NULL)
+    if (is.null(Vr)) {
+      warning("the Hessian of the smoother coefficients is singular", call. = FALSE)
+      convergence <- 1L
+    }
     # effective degrees of freedom of each smoother: k - tr(Hr^-1 S_lambda)
     edf <- vapply(dat$blocks, function(b) {
+      if (is.null(Vr)) return(NA_real_)
       length(b$idx) - sum(Vr[b$idx, b$idx] * penaltyMatrix(b, full[lamPos]))
     }, numeric(1))
     names(edf) <- vapply(dat$blocks, `[[`, "", "label")
-    # Laplace approximation of the marginal likelihood
-    marginal <- obj$fn(full) + 0.5 * as.numeric(determinant(Hr)$modulus) -
-      0.5 * length(re) * log(2 * pi)
+    # Laplace approximation of the marginal likelihood (for ML; with REML
+    # the restricted likelihood is reported instead)
+    if (method == "ML") {
+      marginal <- obj$fn(full) + 0.5 * as.numeric(determinant(Hr)$modulus) -
+        0.5 * length(re) * log(2 * pi)
+    }
   }
 
   list(par = coefs, vcov = vcov, report = report, nlogl = nlogl, objective = marginal,
@@ -388,48 +424,81 @@ fitSmoothing <- function(obj, hess, data, par, bPos, lamPos, ctrl, verbose, maxi
     list(x = x, H = H, converged = max(abs(gr(x))) < 1e-3)
   }
 
-  converged <- FALSE
-  lastMarginal <- Inf
-  for (it in seq_len(maxit)) {
-    fitted <- fitGivenLambda(par[bPos], cold = it == 1)
+  # the penalised fit at given smoothing parameters, with the Laplace
+  # approximation of the marginal likelihood (NULL if the fit fails)
+  evaluate <- function(p, cold = FALSE) {
+    # fn, gr and he read the smoothing parameters from `par`
+    par <<- p
+    fitted <- tryCatch(fitGivenLambda(par[bPos], cold), error = function(e) NULL)
+    if (is.null(fitted)) return(NULL)
     par[bPos] <- fitted$x
     Hr <- fitted$H[re, re, drop = FALSE]
     V <- tryCatch(solve(Hr), error = function(e) NULL)
-    if (is.null(V)) stop("the Hessian of the smoother coefficients is singular")
-    marginal <- obj$fn(par) + 0.5 * as.numeric(determinant(Hr)$modulus)
+    ld <- determinant(Hr)
+    if (is.null(V) || ld$sign < 0) return(NULL)
+    list(par = par, V = V, converged = fitted$converged,
+         marginal = obj$fn(par) + 0.5 * as.numeric(ld$modulus))
+  }
 
-    loglam <- par[lamPos]
-    newLam <- loglam
+  # the Fellner-Schall step for the log smoothing parameters
+  fsStep <- function(cur) {
+    loglam <- cur$par[lamPos]
+    step <- numeric(length(loglam))
     for (b in data$dat$blocks) {
       Sinv <- pseudoInverse(penaltyMatrix(b, loglam))
-      u <- par[rePos[b$idx]]
+      u <- cur$par[rePos[b$idx]]
       for (j in seq_along(b$S)) {
         Sj <- as.matrix(b$S[[j]])
-        num <- sum(Sinv * Sj) - sum(V[b$idx, b$idx] * Sj)
+        num <- sum(Sinv * Sj) - sum(cur$V[b$idx, b$idx] * Sj)
         den <- drop(crossprod(u, Sj %*% u))
         # guard against non-positive updates and limit the step size
-        step <- log(max(num, 1e-8 * sum(Sinv * Sj))) - log(max(den, 1e-300))
-        newLam[b$lam[j]] <- loglam[b$lam[j]] + max(min(step, 5), -5)
+        s <- log(max(num, 1e-8 * sum(Sinv * Sj))) - log(max(den, 1e-300))
+        step[b$lam[j]] <- max(min(s, 5), -5)
       }
     }
-    newLam <- pmin(pmax(newLam, -20), 25)
-    change <- max(abs(newLam - loglam))
+    # stay within bounds
+    pmin(pmax(loglam + step, -20), 25) - loglam
+  }
+
+  cur <- evaluate(par, cold = TRUE)
+  if (is.null(cur)) stop("the penalised fit failed at the initial smoothing parameters")
+  converged <- FALSE
+  for (it in seq_len(maxit)) {
+    step <- fsStep(cur)
     if (verbose) {
-      message("Fellner-Schall iteration ", it, ": marginal nll ", signif(marginal, 8),
-              ", max change in log lambda ", signif(change, 3))
+      message("Fellner-Schall iteration ", it, ": marginal nll ", signif(cur$marginal, 8),
+              ", max step in log lambda ", signif(max(abs(step)), 3))
     }
-    # converged when the smoothing parameters settle, or when the marginal
-    # likelihood no longer changes (smoothing parameters drifting along a
-    # flat direction, typically towards no penalty)
-    if (change < tol || abs(lastMarginal - marginal) < tol * 1e-2) {
+    if (max(abs(step)) < tol) {
       converged <- TRUE
       break
     }
-    lastMarginal <- marginal
-    par[lamPos] <- newLam
+    # the update does not always improve the marginal likelihood: halve the
+    # step until it does
+    new <- NULL
+    for (scale in 2^-(0:6)) {
+      trial <- cur$par
+      trial[lamPos] <- trial[lamPos] + scale * step
+      new <- evaluate(trial)
+      if (!is.null(new) && new$marginal <= cur$marginal + 1e-8) break
+      new <- NULL
+    }
+    if (is.null(new)) {
+      # no improving step: at the optimum to the precision of the update
+      converged <- TRUE
+      break
+    }
+    improvement <- cur$marginal - new$marginal
+    cur <- new
+    # converged when the marginal likelihood no longer changes (smoothing
+    # parameters drifting along a flat direction, typically towards no penalty)
+    if (improvement < tol * 1e-2) {
+      converged <- TRUE
+      break
+    }
   }
   if (!converged) warning("smoothing parameters did not converge", call. = FALSE)
-  list(par = par, convergence = if (converged && fitted$converged) 0L else 1L)
+  list(par = cur$par, convergence = if (converged && cur$converged) 0L else 1L)
 }
 
 # Pseudo-inverse of a symmetric positive semi-definite matrix.
@@ -437,6 +506,41 @@ pseudoInverse <- function(S) {
   e <- eigen(S, symmetric = TRUE)
   keep <- e$values > max(e$values) * 1e-10
   e$vectors[, keep, drop = FALSE] %*% (t(e$vectors[, keep, drop = FALSE]) / e$values[keep])
+}
+
+# REML: maximise the restricted likelihood over the variance parameters
+# (vpar) and log smoothing parameters, integrating out all other
+# coefficients with the Laplace approximation (flat priors on the
+# unpenalised ones), starting from `par` (a vector in unlist(data$par)
+# order, typically the ML fit).
+#
+# Maximum likelihood estimates the observation variances as if the other
+# coefficients were known, so it underestimates them, the more so the more
+# coefficients a fleet's observations have to support; REML accounts for
+# the coefficients' uncertainty.
+fitREML <- function(data, par, ctrl, verbose) {
+  inner <- setdiff(names(data$par)[lengths(data$par) > 0], c("vpar", "loglambda"))
+  obj <- MakeADFun(function(p) a4aNll(p, data$dat), relistPar(par, data$par), random = inner,
+                   silent = !verbose)
+  opt <- stats::nlminb(obj$par, obj$fn, obj$gr, control = ctrl)
+  objective <- obj$fn(opt$par)
+  full <- obj$env$last.par
+  maxgrad <- max(abs(obj$gr(opt$par)))
+  # covariance of the variance parameters from the curvature of the
+  # restricted likelihood (marginal over any smoothing parameters)
+  Hout <- stats::optimHess(opt$par, obj$fn, obj$gr)
+  Vout <- tryCatch(solve(Hout), error = function(e) NULL)
+  vparOut <- names(opt$par) == "vpar"
+  list(par = full, objective = objective, convergence = laplaceConvergence(opt, maxgrad),
+       maxgrad = maxgrad, vcovVpar = if (!is.null(Vout)) Vout[vparOut, vparOut, drop = FALSE])
+}
+
+# Convergence of nlminb on a Laplace-approximated objective. The objective
+# carries a little numerical noise from the inner optimisation, which near a
+# flat optimum makes nlminb report "false convergence"; that is accepted when
+# the gradient is small.
+laplaceConvergence <- function(opt, maxgrad, tol = 0.01) {
+  if (opt$convergence == 0 || (grepl("false convergence", opt$message) && maxgrad < tol)) 0L else 1L
 }
 
 # Maximise the Laplace approximation of the marginal likelihood with RTMB,
@@ -447,7 +551,8 @@ fitLaplace <- function(data, par, ctrl, verbose) {
                    silent = !verbose)
   opt <- stats::nlminb(obj$par, obj$fn, obj$gr, control = ctrl)
   obj$fn(opt$par)
-  list(par = obj$env$last.par, convergence = opt$convergence, maxgrad = max(abs(obj$gr(opt$par))))
+  maxgrad <- max(abs(obj$gr(opt$par)))
+  list(par = obj$env$last.par, convergence = laplaceConvergence(opt, maxgrad), maxgrad = maxgrad)
 }
 
 # A vector in unlist(par) order back into the parameter list `par`.

@@ -1,5 +1,19 @@
 # FLa4a 2.0.0.9000
 
+* `sca(..., method = "REML")` estimates the observation variances and any
+  smoothing parameters by restricted maximum likelihood, integrating out
+  all other coefficients. Maximum likelihood underestimates the variances
+  (the catch sd by about 20% in the "simple" scenario), so its 95%
+  confidence intervals cover the truth about 89% of the time; REML brings
+  coverage close to 95% (see `src/examples/09-reml-coverage.R`); estimates
+  are unchanged. With penalised smoothers REML also estimates the smoothing
+  parameters.
+* Fellner-Schall smoothing parameter updates now use step control (a step
+  is halved until the marginal likelihood improves); previously they could
+  occasionally diverge.
+* Fits whose Laplace-based optimisation stops with "false convergence" at a
+  small gradient are treated as converged.
+
 * Simulated data with known truth: `simStock()` (with `simSurvey()`) and
   ready-made `simScenario()`s ("simple", "smooth", "covariate", "sr",
   "biomass"), each with the submodels to fit them. The population

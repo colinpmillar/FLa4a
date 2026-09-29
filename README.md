@@ -72,6 +72,20 @@ d$truth$ssb                                                             # the tr
 `simStock()` builds custom data sets (selectivity, F trajectory, recruitment
 model, surveys, covariate effects).
 
+### REML
+
+```r
+# observation variances (and smoothing parameters) by restricted maximum
+# likelihood, for confidence intervals with close to nominal coverage
+fit <- sca(ple4, ple4.indices["BTS-Combined (all)"],
+           fmodel = ~ s(age, k = 5) + s(year, k = 20), qmodel = list(~ s(age, k = 4)),
+           method = "REML")
+```
+
+Maximum likelihood underestimates the observation variances, which makes
+intervals too narrow; see `src/examples/09-reml-coverage.R`. Use ML (the
+default) to compare models by AIC.
+
 ### Simulation with covariates
 
 ```r
@@ -129,6 +143,10 @@ For ages *a* and years *y*, each submodel is a linear predictor
   with Hessians computed from a sparse Hessian of the likelihood in the
   linear predictors; `sp.method = "laplace"` maximises RTMB's Laplace
   approximation directly
+- with `method = "REML"`, the observation variance parameters and any
+  smoothing parameters maximise the restricted likelihood, with all other
+  coefficients integrated out by RTMB's Laplace approximation (flat priors
+  on the unpenalised ones), starting from the maximum likelihood fit
 
 Results agree with the ADMB implementation (FLa4a 1.9.7). The tests pin the ADMB
 likelihoods for separable, smooth, stock-recruitment and biomass-index models.

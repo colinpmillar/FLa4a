@@ -17,6 +17,7 @@ sca(
   center = TRUE,
   penalise = FALSE,
   sp.method = c("efs", "laplace"),
+  method = c("ML", "REML"),
   verbose = FALSE,
   control = list()
 )
@@ -58,6 +59,18 @@ then refines the estimates by maximising RTMB's Laplace approximation of
 the marginal likelihood directly, which is exact to that approximation
 but can be much slower for large tensor-product smoothers.}
 
+\item{method}{\code{"ML"} (default) estimates all parameters by maximum
+likelihood. \code{"REML"} estimates the observation variance parameters (the
+\code{vmodel} coefficients) and any smoothing parameters by restricted
+maximum likelihood: all other coefficients are integrated out with the
+Laplace approximation (flat priors on the unpenalised ones), starting
+from the ML fit. Maximum likelihood underestimates the observation
+variances, the more so the more coefficients each fleet's data have to
+support, which makes confidence intervals too narrow; REML corrects for
+this. The likelihoods (and so \code{AIC()}) of REML fits with different
+submodels for F, catchability, initial numbers or recruitment are not
+comparable: use ML for model selection.}
+
 \item{verbose}{logical, print optimiser output.}
 
 \item{control}{list of control options passed to \code{\link[stats:nlminb]{stats::nlminb()}}.}
@@ -65,7 +78,8 @@ but can be much slower for large tensor-product smoothers.}
 \value{
 an \linkS4class{a4aFit} object. For penalised fits, \code{fitSumm()}
 reports the effective degrees of freedom of each smoother (\verb{edf:}), the
-marginal negative log-likelihood (\code{nlogl:marginal}), and \code{nopar} counts
+marginal negative log-likelihood (\code{nlogl:marginal}; the restricted
+likelihood for REML fits), and \code{nopar} counts
 unpenalised parameters plus the smoothers' effective degrees of freedom,
 so that \code{AIC()} is a conditional AIC. The log smoothing parameters are in
 \code{smoothing()}.
