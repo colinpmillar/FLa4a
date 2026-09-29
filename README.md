@@ -123,6 +123,9 @@ smoothers, confidence interval coverage and simulated scenarios.
 
 ## Model
 
+The full model equations and the fitting algorithms are in
+[`docs/model.md`](docs/model.md). In brief:
+
 For ages *a* and years *y*, each submodel is a linear predictor
 `X %*% beta` on the log scale:
 

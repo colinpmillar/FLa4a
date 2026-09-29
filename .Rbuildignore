@@ -4,3 +4,4 @@
 ^\.devcontainer$
 ^\.gitattributes$
 ^src$
+^docs$
