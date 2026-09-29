@@ -19,8 +19,8 @@ a numeric matrix with \code{nrow(df)} rows.
 \description{
 Turns a one-sided submodel formula into a model matrix. Formulas may mix
 standard terms (\code{factor(age)}, \code{year}, ...) with 'mgcv' smoothers
-(\code{s()}, \code{te()}, \code{ti()}); smoother bases are built with
-\code{\link[mgcv:gam]{mgcv::gam()}} (\code{fit = FALSE}) and are unpenalised.
+(\code{s()}, \code{te()}, \code{ti()}); smoother bases are built with \code{\link[mgcv:gam]{mgcv::gam()}} and
+are unpenalised.
 }
 \details{
 The basis is built on the unique rows of \code{df} and then expanded back, so

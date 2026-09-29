@@ -13,6 +13,9 @@
 #'   `fit = "MP"`.
 #' @slot centering log-scale centering applied to each fleet (`FLPar`).
 #' @slot models the submodel formulas.
+#' @slot design the submodel designs (bases), used by [predict()] and
+#'   [simulate()] to evaluate the submodels at new covariate values.
+#' @slot covar the covariates used in the fit.
 #' @export
 setClass("a4aFit", contains = "FLComp",
   slots = c(call = "call",
@@ -20,7 +23,7 @@ setClass("a4aFit", contains = "FLComp",
             index = "FLQuants",
             fitSumm = "matrix",
             coefficients = "FLPar", vcov = "array", centering = "FLPar",
-            models = "list"))
+            models = "list", design = "list", covar = "list"))
 
 #' @rdname a4aFit-class
 #' @param object an `a4aFit`.

@@ -37,7 +37,8 @@ such as \code{~ bevholt(CV = 0.2)} (see \link{srmodels}).}
 one for the catch followed by one per index.}
 
 \item{covar}{optional named list of \code{FLQuant} covariates usable in the
-formulas.}
+formulas. A covariate may vary by year (first dimension \code{"all"}) or by
+age and year, and may have one iteration or as many as the data.}
 
 \item{fit}{\code{"assessment"} (default) also computes the parameter covariance
 matrix; \code{"MP"} only estimates parameters.}

@@ -47,6 +47,22 @@ stk <- ple4 + fit
 AIC(fit)
 ```
 
+### Simulation with covariates
+
+```r
+temp <- FLQuant(rnorm(61), dimnames = list(year = 1957:2017))
+fit <- sca(ple4, ple4.indices["BTS-Combined (all)"], covar = list(temp = temp),
+           fmodel = ~ s(age, k = 5) + s(year, k = 20) + temp,
+           qmodel = list(~ s(age, k = 4)))
+
+# expected values, and simulated catches and indices, under new covariates
+p   <- predict(fit, ple4, ple4.indices["BTS-Combined (all)"], covar = list(temp = temp + 1))
+sim <- simulate(fit, nsim = 100, stock = ple4, indices = ple4.indices["BTS-Combined (all)"],
+                covar = list(temp = temp + 1))
+refit <- sca(sim$stock, sim$indices, covar = list(temp = temp),
+             fmodel = fit@models$fmodel, qmodel = fit@models$qmodel)
+```
+
 See [`examples/`](examples) for worked examples with plots: getting started,
 smoothers, covariates and stock-recruitment models.
 
@@ -57,8 +73,9 @@ smoothers, covariates and stock-recruitment models.
 | `R/sca.R` | `sca()`: loops over iterations and assembles the `a4aFit` |
 | `R/data.R` | observations, biology and submodel design matrices for one iteration |
 | `R/model.R` | the RTMB objective function `a4aNll()` and optimiser `fitA4a()` |
-| `R/formula.R` | `getX()`: formula to design matrix (mgcv smoothers supported) |
+| `R/formula.R` | submodel designs: formula to design matrix (mgcv smoothers supported), re-evaluable at new data with the fitted basis |
 | `R/srmodels.R` | stock-recruitment models: `bevholt()`, `ricker()`, `hockey()`, `geomean()`, `bevholtSV()` |
+| `R/simulate.R` | `predict()` and `simulate()`: the fitted model at new covariate values, with observation error |
 | `R/defaults.R` | default submodels |
 | `R/a4aFit-class.R` | result class, accessors, `logLik()`, `FLStock + a4aFit` |
 
@@ -81,9 +98,11 @@ likelihoods for separable, smooth, stock-recruitment and biomass-index models.
 
 ## Not (yet) included
 
-Compared with FLa4a 1.9.x, this version drops MCMC, `simulate`/`predict`,
-residual and diagnostic classes, `a4aM`/growth/length-to-age tools, multiple
-units/seasons/areas, and the `trawl()` formula helper. The next step is
+Compared with FLa4a 1.9.x, this version drops MCMC, residual and diagnostic classes, `a4aM`/growth/length-to-age tools, multiple
+units/seasons/areas, and the `trawl()` formula helper. `predict()` and
+`simulate()` cover the fitted ages and years (no projections yet), and
+recruitment follows its fitted values unless its submodel uses covariates.
+The next step is
 efficient sparse estimation of penalised 1D and 2D smoothers.
 
 ## License

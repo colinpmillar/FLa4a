@@ -73,5 +73,10 @@ convergence flag and likelihood components.}
 \item{\code{centering}}{log-scale centering applied to each fleet (\code{FLPar}).}
 
 \item{\code{models}}{the submodel formulas.}
+
+\item{\code{design}}{the submodel designs (bases), used by \code{\link[=predict]{predict()}} and
+\code{\link[=simulate]{simulate()}} to evaluate the submodels at new covariate values.}
+
+\item{\code{covar}}{the covariates used in the fit.}
 }}
 

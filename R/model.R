@@ -95,6 +95,8 @@ a4aNll <- function(par, dat) {
   REPORT(logF)
   REPORT(logN)
   REPORT(logQ)
+  REPORT(pred)
+  REPORT(sdObs)
   REPORT(nllComp)
   sum(nllComp)
 }

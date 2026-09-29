@@ -3,8 +3,12 @@
 # All age x year quantities are stored as vectors in column-major (age
 # fastest) order so that they can be reshaped to nage x nyear matrices,
 # the same layout as an FLQuant.
+#
+# `designs` and `centering` come from an earlier fit: the design matrices are
+# then evaluated with the fitted bases (so the fitted parameters still apply,
+# e.g. at new covariate values) and the fitted centering is reused.
 a4aData <- function(stock, indices, fmodel, qmodel, vmodel, n1model, srmodel,
-                    covar = NULL, center = TRUE) {
+                    covar = NULL, center = TRUE, designs = NULL, centering = NULL) {
 
   ages  <- as.numeric(dimnames(stock.n(stock))$age)
   years <- as.numeric(dimnames(stock.n(stock))$year)
@@ -20,9 +24,11 @@ a4aData <- function(stock, indices, fmodel, qmodel, vmodel, n1model, srmodel,
   obsList <- c(list(obsFrame(catch.n(stock), catchVar, ages, years)),
                lapply(indices, function(x) obsFrame(index(x), index.var(x), ages, years)))
 
-  centering <- vapply(obsList, function(x) mean(log(x$obs)), numeric(1))
-  if (!isTRUE(center)) centering[] <- 0
-  names(centering) <- fleets
+  if (is.null(centering)) {
+    centering <- vapply(obsList, function(x) mean(log(x$obs)), numeric(1))
+    if (!isTRUE(center)) centering[] <- 0
+  }
+  centering <- stats::setNames(as.numeric(centering), fleets)
 
   obs <- do.call(rbind, lapply(seq_along(obsList), function(i) {
     x <- obsList[[i]]
@@ -58,16 +64,25 @@ a4aData <- function(stock, indices, fmodel, qmodel, vmodel, n1model, srmodel,
   sr <- parseSRmodel(srmodel)
   recGrid <- grid[grid$age == ages[1], , drop = FALSE]
 
-  X <- list(
-    f  = getX(fmodel, grid),
-    q  = lapply(seq_along(indices), function(i) getX(qmodel[[i]], fleetGrid(i + 1))),
-    v  = lapply(seq_along(fleets), function(i) getX(vmodel[[i]], fleetGrid(i))),
-    n1 = if (nA > 1) getX(n1model, grid[grid$year == years[1] & grid$age > ages[1], , drop = FALSE])
-         else matrix(0, 0, 0),
-    r  = getX(sr$rmodel, recGrid),
-    sra = if (!is.null(sr$sr)) getX(sr$sr$a, recGrid) else matrix(0, nY, 0),
-    srb = if (!is.null(sr$sr$b)) getX(sr$sr$b, recGrid) else matrix(0, nY, 0)
+  # build each design, or evaluate a stored one at the (possibly new) data
+  des <- function(formula, df, stored) {
+    if (is.null(stored)) a4aDesign(formula, df) else list(X = predictDesign(stored, df), design = stored)
+  }
+  n1Grid <- grid[grid$year == years[1] & grid$age > ages[1], , drop = FALSE]
+  D <- list(
+    f  = des(fmodel, grid, designs$f),
+    q  = lapply(seq_along(indices), function(i) des(qmodel[[i]], fleetGrid(i + 1), designs$q[[i]])),
+    v  = lapply(seq_along(fleets), function(i) des(vmodel[[i]], fleetGrid(i), designs$v[[i]])),
+    n1 = if (nA > 1) des(n1model, n1Grid, designs$n1),
+    r  = des(sr$rmodel, recGrid, designs$r),
+    sra = if (!is.null(sr$sr)) des(sr$sr$a, recGrid, designs$sra),
+    srb = if (!is.null(sr$sr$b)) des(sr$sr$b, recGrid, designs$srb)
   )
+  getMat <- function(d, nrow) if (is.null(d)) matrix(0, nrow, 0) else d$X
+  X <- list(f = D$f$X, q = lapply(D$q, `[[`, "X"), v = lapply(D$v, `[[`, "X"),
+            n1 = getMat(D$n1, 0), r = D$r$X, sra = getMat(D$sra, nY), srb = getMat(D$srb, nY))
+  designs <- list(f = D$f$design, q = lapply(D$q, `[[`, "design"), v = lapply(D$v, `[[`, "design"),
+                  n1 = D$n1$design, r = D$r$design, sra = D$sra$design, srb = D$srb$design)
   names(X$q) <- fleets[-1]
   names(X$v) <- fleets
 
@@ -117,7 +132,8 @@ a4aData <- function(stock, indices, fmodel, qmodel, vmodel, n1model, srmodel,
     pn("srbMod:", X$srb)
   )
 
-  list(dat = dat, par = par, pnames = pnames, centering = centering,
+  list(dat = dat, par = par, pnames = pnames, centering = centering, designs = designs,
+       obs = obs[c("fleet", "year", "age")],
        ages = ages, years = years, fleets = fleets, nobs = nrow(obs))
 }
 

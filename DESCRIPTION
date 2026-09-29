@@ -34,4 +34,5 @@ Collate:
   'model.R'
   'a4aFit-class.R'
   'sca.R'
+  'simulate.R'
 RoxygenNote: 7.3.1

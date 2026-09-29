@@ -19,7 +19,8 @@
 #' @param vmodel list of formulas for the log observation standard deviation,
 #'   one for the catch followed by one per index.
 #' @param covar optional named list of `FLQuant` covariates usable in the
-#'   formulas.
+#'   formulas. A covariate may vary by year (first dimension `"all"`) or by
+#'   age and year, and may have one iteration or as many as the data.
 #' @param fit `"assessment"` (default) also computes the parameter covariance
 #'   matrix; `"MP"` only estimates parameters.
 #' @param center logical, center each fleet's log observations before fitting.
@@ -45,10 +46,8 @@ sca <- function(stock, indices,
                 verbose = FALSE, control = list()) {
 
   fit <- match.arg(fit)
-  if (is(indices, "FLIndex") || is(indices, "FLIndexBiomass")) indices <- FLIndices(indices)
-  nms <- names(indices)
-  if (is.null(nms) || any(nms == "")) nms <- rep("index", length(indices))
-  names(indices) <- make.unique(nms)
+  indices <- prepIndices(indices)
+  covar <- as.list(covar)
 
   d <- dims(stock)
   if (d$unit > 1 || d$season > 1 || d$area > 1)
@@ -57,15 +56,16 @@ sca <- function(stock, indices,
   if (length(vmodel) != length(indices) + 1) stop("vmodel needs one formula for the catch and one per index")
 
   # iterations of stock and indices must be 1 or n
-  its <- c(d$iter, vapply(indices, function(x) dims(x)$iter, numeric(1)))
+  its <- c(d$iter, vapply(c(indices, covar), function(x) dims(x)$iter, numeric(1)))
   nit <- max(its)
-  if (any(its != 1 & its != nit)) stop("inconsistent number of iterations in stock and indices")
+  if (any(its != 1 & its != nit)) stop("inconsistent number of iterations in stock, indices and covar")
 
   fits <- lapply(seq_len(nit), function(i) {
     stk <- iter(stock, min(i, d$iter))
-    idx <- FLIndices(lapply(indices, function(x) iter(x, min(i, dims(x)$iter))))
+    idx <- FLIndices(lapply(indices, iterOf, i))
     data <- a4aData(stk, idx, fmodel = fmodel, qmodel = qmodel, vmodel = vmodel,
-                    n1model = n1model, srmodel = srmodel, covar = covar, center = center)
+                    n1model = n1model, srmodel = srmodel, covar = lapply(covar, iterOf, i),
+                    center = center)
     res <- fitA4a(data, fit = fit, verbose = verbose, control = control)
     c(res, list(data = data, quants = predictQuants(res, data, stk, idx)))
   })
@@ -88,7 +88,8 @@ sca <- function(stock, indices,
                  list(pnames, pnames, iter = seq_len(nit))),
     centering = FLPar(NA, dimnames = list(params = fleets, iter = seq_len(nit))),
     models = list(fmodel = fmodel, qmodel = qmodel, vmodel = vmodel,
-                  n1model = n1model, srmodel = srmodel))
+                  n1model = n1model, srmodel = srmodel),
+    design = first$data$designs, covar = covar)
 
   summNames <- c("nopar", "nlogl", "maxgrad", "nobs", "convergence",
                  paste0("nlogl:", c(fleets, if (length(first$report$nllComp) > length(fleets)) "srr")))
@@ -109,6 +110,18 @@ sca <- function(stock, indices,
   units(out@harvest) <- "f"
   out
 }
+
+# Indices as a named FLIndices (a single FLIndex is accepted).
+prepIndices <- function(indices) {
+  if (is(indices, "FLIndex") || is(indices, "FLIndexBiomass")) indices <- FLIndices(indices)
+  nms <- names(indices)
+  if (is.null(nms) || any(nms == "")) nms <- rep("index", length(indices))
+  names(indices) <- make.unique(nms)
+  indices
+}
+
+# Iteration i of an object with 1 or n iterations.
+iterOf <- function(x, i) iter(x, min(i, dims(x)$iter))
 
 # Convert the reported model quantities of one fit into FLQuants.
 predictQuants <- function(res, data, stock, indices) {
