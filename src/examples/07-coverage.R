@@ -22,8 +22,14 @@ years <- as.numeric(dimnames(d$stock)$year)
 #---------------------------------------------------------------------
 # Fit each simulated data set and compute 95% intervals
 #---------------------------------------------------------------------
-truthOf <- function(q) switch(q, ssb = c(d$truth$ssb), fbar = c(d$truth$fbar),
-                              rec = c(d$truth$rec), harvest = c(d$truth$harvest))
+# true values of every quantity derivedCI() reports; n1 is the numbers at age
+# in the first year, ages after the first (the n1model)
+truth <- list(ssb = c(d$truth$ssb), fbar = c(d$truth$fbar), rec = c(d$truth$rec),
+              harvest = c(d$truth$harvest), n1 = c(d$truth$stock.n[-1, 1]))
+truthOf <- function(q) {
+  if (is.null(truth[[q]])) stop("no true values for derivedCI quantity '", q, "'")
+  truth[[q]]
+}
 results <- lapply(seq_len(nsim), function(i) {
   stk <- iter(d$stock, i)
   idx <- FLIndices(lapply(d$indices, iter, i))

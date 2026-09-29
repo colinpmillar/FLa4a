@@ -63,7 +63,7 @@ fitOne <- function(i, study, d) {
   idx <- FLIndices(lapply(d$indices, iter, i))
   models <- study$models(d)
   truth <- list(ssb = c(d$truth$ssb), fbar = c(d$truth$fbar), rec = c(d$truth$rec),
-                harvest = c(d$truth$harvest))
+                harvest = c(d$truth$harvest), n1 = c(d$truth$stock.n[-1, 1]))
   lapply(c("ML", "REML"), function(method) {
     t0 <- Sys.time()
     fit <- tryCatch(do.call(sca, c(list(stk, idx), models,
@@ -74,7 +74,8 @@ fitOne <- function(i, study, d) {
       return(list(ci = NULL, sd = NULL, secs = secs, converged = FALSE))
     }
     ci <- derivedCI(fit, stk, idx)
-    ci$truth <- unlist(truth[unique(ci$quantity)])
+    ci$truth <- unlist(truth[unique(ci$quantity)], use.names = FALSE)
+    stopifnot(length(ci$truth) == nrow(ci))
     ci$method <- method
     ci$sim <- i
     v <- grep("^vMod:.*:\\(Intercept\\)$", dimnames(coef(fit))$params, value = TRUE)
