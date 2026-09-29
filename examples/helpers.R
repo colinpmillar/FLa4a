@@ -3,6 +3,24 @@
 
 options(scipen = 10)  # plain numbers on axes
 
+# Folder for an example's plots, examples/<name>/, created if needed.
+exampleDir <- function(name) {
+  dir <- file.path("examples", name)
+  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+  dir
+}
+
+# Draw `plot` (any plotting code) into <dir>/<name>.png. `dir` defaults to
+# the `outDir` set at the top of each example.
+savePng <- function(name, plot, dir = outDir, width = 900, height = 650, res = 110) {
+  path <- file.path(dir, paste0(name, ".png"))
+  grDevices::png(path, width = width, height = height, res = res)
+  on.exit(grDevices::dev.off())
+  plot
+  message("saved ", path)
+  invisible(path)
+}
+
 # Colours for comparing several fits
 fitCols <- function(n) grDevices::hcl.colors(max(n, 2), "Dark 3")[seq_len(n)]
 

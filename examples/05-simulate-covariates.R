@@ -15,6 +15,7 @@
 
 library(FLa4a)
 source("examples/helpers.R")
+outDir <- exampleDir("05-simulate-covariates")  # plots are saved here
 
 data(ple4)
 data(ple4.indices)
@@ -57,13 +58,15 @@ print(dims(sims$stock)$iter)              # FLStock: catch.n simulated, stock.n/
 print(dims(index(sims$indices[[1]]))$iter) # FLIndices of simulated indices
 
 bts <- names(indices)[1]
-par(mfrow = c(2, 2), mar = c(3, 5, 2, 1))
-for (a in c(2, 6)) {
-  plotEnvelope(list(simulated = catch.n(sims$stock)), age = a, obs = catch.n(ple4),
-               main = paste("catch at age", a), ylab = "thousands")
-  plotEnvelope(list(simulated = index(sims$indices[[bts]])), age = a, obs = index(indices[[bts]]),
-               main = paste(bts, "age", a), ylab = "index")
-}
+savePng("predictive-check", {
+  par(mfrow = c(2, 2), mar = c(3, 5, 2, 1))
+  for (a in c(2, 6)) {
+    plotEnvelope(list(simulated = catch.n(sims$stock)), age = a, obs = catch.n(ple4),
+                 main = paste("catch at age", a), ylab = "thousands")
+    plotEnvelope(list(simulated = index(sims$indices[[bts]])), age = a, obs = index(indices[[bts]]),
+                 main = paste(bts, "age", a), ylab = "index")
+  }
+})
 
 # add parameter uncertainty as well as observation error
 simsP <- simulate(fit, nsim = 100, seed = 1, stock = ple4, indices = indices, sample.pars = TRUE)
@@ -86,18 +89,20 @@ simsS <- simulate(fit, nsim = 100, seed = 1, stock = ple4, indices = indices, co
 
 # The expected change is small next to observation error, so show both the
 # simulated envelopes and the expected ratio scenario / fitted
-par(mfrow = c(1, 2), mar = c(3, 5, 2, 1))
-plotEnvelope(list(fitted = index(sims$indices[[bts]]), scenario = index(simsS$indices[[bts]])),
-             age = 6, main = paste(bts, "age 6"), ylab = "index")
 ratios <- cbind("BTS index, age 2" = c(p1$index[[bts]]["2", ] / p0$index[[bts]]["2", ]),
                 "BTS index, age 6" = c(p1$index[[bts]]["6", ] / p0$index[[bts]]["6", ]),
                 "catch, age 2" = c(p1$catch.n["2", ac(1996:2017)] / p0$catch.n["2", ac(1996:2017)]),
                 "catch, age 6" = c(p1$catch.n["6", ac(1996:2017)] / p0$catch.n["6", ac(1996:2017)]))
-matplot(1996:2017, ratios, type = "l", lty = c(1, 1, 2, 2), lwd = 2, col = fitCols(2)[c(1, 2, 1, 2)],
-        las = 1, xlab = "", ylab = "scenario / fitted", main = "Expected change (predict)")
-abline(h = 1, col = "grey60")
-legend("bottomright", colnames(ratios), lty = c(1, 1, 2, 2), lwd = 2, col = fitCols(2)[c(1, 2, 1, 2)],
-       bty = "n", cex = 0.8)
+savePng("scenario", {
+  par(mfrow = c(1, 2), mar = c(3, 5, 2, 1))
+  plotEnvelope(list(fitted = index(sims$indices[[bts]]), scenario = index(simsS$indices[[bts]])),
+               age = 6, main = paste(bts, "age 6"), ylab = "index")
+  matplot(1996:2017, ratios, type = "l", lty = c(1, 1, 2, 2), lwd = 2, col = fitCols(2)[c(1, 2, 1, 2)],
+          las = 1, xlab = "", ylab = "scenario / fitted", main = "Expected change (predict)")
+  abline(h = 1, col = "grey60")
+  legend("bottomright", colnames(ratios), lty = c(1, 1, 2, 2), lwd = 2, col = fitCols(2)[c(1, 2, 1, 2)],
+         bty = "n", cex = 0.8)
+})
 
 # Covariates can also differ between simulations: give them nsim iterations,
 # e.g. 50 random temperature trajectories
@@ -124,18 +129,20 @@ estSE <- sqrt(vcov(refits)["fMod:temp", "fMod:temp", ])
 print(summary(est))
 print(mean(abs(est - log(1.2)) < 2 * estSE))   # coverage of approximate 95% intervals
 
-par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
-plot(seq_along(est), est, ylim = range(est - 2 * estSE, est + 2 * estSE), pch = 16, las = 1,
-     xlab = "simulation", ylab = "estimated temp effect on log F", main = "Refitted effect")
-segments(seq_along(est), est - 2 * estSE, seq_along(est), est + 2 * estSE)
-abline(h = log(1.2), col = fitCols(1), lwd = 2)
-legend("topleft", c("estimate +/- 2 se", "true value"), pch = c(16, NA), lwd = c(1, 2),
-       col = c("black", fitCols(1)), bty = "n", cex = 0.8)
-
 yrs <- as.numeric(years)
-plot(yrs, yearly(fbar(simsR$stock[, , , , , 1])), type = "n", las = 1, xlab = "", ylab = "Fbar",
-     ylim = c(0, 1), main = "Fbar: truth and refits")
 fbarRange <- ac(range(ple4)["minfbar"]:range(ple4)["maxfbar"])
-for (i in seq_along(est)) lines(yrs, yearly(quantMeans(harvest(refits)[fbarRange, , , , , i])), col = "grey70")
-lines(yrs, yearly(fbar(simsR$stock[, , , , , 1])), col = fitCols(1), lwd = 2)
-legend("topleft", c("refits", "truth"), col = c("grey70", fitCols(1)), lwd = c(1, 2), bty = "n", cex = 0.8)
+savePng("effect-recovery", {
+  par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
+  plot(seq_along(est), est, ylim = range(est - 2 * estSE, est + 2 * estSE), pch = 16, las = 1,
+       xlab = "simulation", ylab = "estimated temp effect on log F", main = "Refitted effect")
+  segments(seq_along(est), est - 2 * estSE, seq_along(est), est + 2 * estSE)
+  abline(h = log(1.2), col = fitCols(1), lwd = 2)
+  legend("topleft", c("estimate +/- 2 se", "true value"), pch = c(16, NA), lwd = c(1, 2),
+         col = c("black", fitCols(1)), bty = "n", cex = 0.8)
+
+  plot(yrs, yearly(fbar(simsR$stock[, , , , , 1])), type = "n", las = 1, xlab = "", ylab = "Fbar",
+       ylim = c(0, 1), main = "Fbar: truth and refits")
+  for (i in seq_along(est)) lines(yrs, yearly(quantMeans(harvest(refits)[fbarRange, , , , , i])), col = "grey70")
+  lines(yrs, yearly(fbar(simsR$stock[, , , , , 1])), col = fitCols(1), lwd = 2)
+  legend("topleft", c("refits", "truth"), col = c("grey70", fitCols(1)), lwd = c(1, 2), bty = "n", cex = 0.8)
+})

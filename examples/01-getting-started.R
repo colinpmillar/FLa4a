@@ -7,6 +7,7 @@
 
 library(FLa4a)
 source("examples/helpers.R")
+outDir <- exampleDir("01-getting-started")  # plots are saved here
 
 #---------------------------------------------------------------------
 # Data: an FLStock (catch at age and biology) and survey indices
@@ -59,22 +60,24 @@ print(dim(vcov(fit1)))
 stk0 <- ple4 + fit0
 stk1 <- ple4 + fit1
 
-plotSummary(list(default = stk0, "te(age, year)" = stk1), main = "North Sea plaice")
+savePng("stock-summary",
+        plotSummary(list(default = stk0, "te(age, year)" = stk1), main = "North Sea plaice"))
 
 # Fishing mortality at age and year
-par(mfrow = c(1, 1))
-plotAgeYear(harvest(fit1), main = "F at age: te(age, year, k = c(5, 20))")
+savePng("F-at-age", plotAgeYear(harvest(fit1), main = "F at age: te(age, year, k = c(5, 20))"))
 
 #---------------------------------------------------------------------
 # 4. How well does the model fit the data?
 #---------------------------------------------------------------------
 # fitted vs observed survey indices
-plotIndexFit(index(indices[[1]]), index(fit1)[[1]], main = names(indices)[1])
+savePng("index-fit", plotIndexFit(index(indices[[1]]), index(fit1)[[1]], main = names(indices)[1]))
 
 # residuals for the catch and the first survey
-par(mfrow = c(2, 1), mar = c(3, 4, 2, 1))
-plotResiduals(catch.n(ple4), catch.n(fit1), main = "catch: log residuals")
-plotResiduals(index(indices[[1]]), index(fit1)[[1]], main = paste(names(indices)[1], ": log residuals"))
+savePng("residuals", {
+  par(mfrow = c(2, 1), mar = c(3, 4, 2, 1))
+  plotResiduals(catch.n(ple4), catch.n(fit1), main = "catch: log residuals")
+  plotResiduals(index(indices[[1]]), index(fit1)[[1]], main = paste(names(indices)[1], ": log residuals"))
+})
 
 # likelihood components and information criteria
 print(fitSumm(fit1))

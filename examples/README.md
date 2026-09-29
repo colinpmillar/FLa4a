@@ -8,6 +8,11 @@ FLCore). Run them from the repository root, either line by line or with
 source("examples/01-getting-started.R")
 ```
 
+Each script saves its plots as PNG files in a folder named after it, e.g.
+`examples/01-getting-started/stock-summary.png` (these folders are not
+tracked by git). In your own code, `savePng("name", { ...plotting code... })`
+from `helpers.R` does the same.
+
 | script | shows |
 |--------|-------|
 | `01-getting-started.R` | a first fit, results as FLQuants, `stock + fit`, summary plots, index fits, residuals, AIC/BIC |

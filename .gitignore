@@ -20,3 +20,6 @@ src/a4a.o
 inst/doc/*
 
 docs/manual/cache/*
+
+# plots written by the examples
+examples/*/

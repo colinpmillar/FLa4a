@@ -9,6 +9,7 @@
 
 library(FLa4a)
 source("examples/helpers.R")
+outDir <- exampleDir("03-covariates")  # plots are saved here
 
 data(ple4)
 data(ple4.indices)
@@ -39,10 +40,12 @@ temp <- FLQuant(c(stats::arima.sim(list(ar = 0.7), n = length(years), sd = 0.4))
 lw <- log(stock.wt(ple4))
 wtAnomaly <- lw %-% yearMeans(lw)
 
-par(mfrow = c(2, 1), mar = c(3, 4, 2, 1))
-plot(as.numeric(years), c(temp), type = "l", lwd = 2, las = 1, xlab = "", ylab = "anomaly",
-     main = "temp (simulated, year only)")
-plotAgeYear(wtAnomaly, main = "wtAnomaly: log stock weight anomaly (age x year)")
+savePng("covariates", {
+  par(mfrow = c(2, 1), mar = c(3, 4, 2, 1))
+  plot(as.numeric(years), c(temp), type = "l", lwd = 2, las = 1, xlab = "", ylab = "anomaly",
+       main = "temp (simulated, year only)")
+  plotAgeYear(wtAnomaly, main = "wtAnomaly: log stock weight anomaly (age x year)")
+})
 
 covar <- list(temp = temp, wtAnomaly = wtAnomaly)
 
@@ -102,5 +105,6 @@ fitBreak <- sca(ple4, indices, fmodel = fmod,
 print(coefTable(fitBreak, "breakpts"))
 print(fitTable(list(base = fitBase, "SNS q break in 1995" = fitBreak)))
 
-plotSummary(list(base = ple4 + fitBase, "+ wtAnomaly" = ple4 + fitWt,
-                 "SNS q break" = ple4 + fitBreak), main = "Covariate models")
+savePng("stock-summary",
+        plotSummary(list(base = ple4 + fitBase, "+ wtAnomaly" = ple4 + fitWt,
+                         "SNS q break" = ple4 + fitBreak), main = "Covariate models"))

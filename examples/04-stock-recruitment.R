@@ -9,6 +9,7 @@
 
 library(FLa4a)
 source("examples/helpers.R")
+outDir <- exampleDir("04-stock-recruitment")  # plots are saved here
 
 data(ple4)
 data(ple4.indices)
@@ -56,15 +57,17 @@ cols <- fitCols(length(stks))
 ssbLag <- function(s) yearly(ssb(s))[-dims(s)$year]   # recruits are age 1: pair with last year's SSB
 recLag <- function(s) yearly(rec(s))[-1]
 
-par(mfrow = c(1, 2), mar = c(4, 5, 2, 1))
 S <- seq(0, 1.1 * max(ssbLag(stks$free)), length = 200)
-plot(ssbLag(stks$free) / 1000, recLag(stks$free) / 1e6, pch = 16, col = "grey60", las = 1,
-     xlim = range(S) / 1000, ylim = c(0, max(recLag(stks$free)) / 1e6),
-     xlab = "SSB (thousand t)", ylab = "recruits at age 1 (millions)", main = "Fitted SR curves")
-for (i in 2:length(srfits)) lines(S / 1000, srCurve(srfits[[i]], S) / 1e6, col = cols[i], lwd = 2)
-legend("topright", c("free recruitment", names(srfits)[-1]), col = c("grey60", cols[-1]),
-       pch = c(16, rep(NA, length(srfits) - 1)), lwd = c(NA, rep(2, length(srfits) - 1)),
-       bty = "n", cex = 0.8)
+savePng("sr-curves", {
+  par(mar = c(4, 5, 2, 1))
+  plot(ssbLag(stks$free) / 1000, recLag(stks$free) / 1e6, pch = 16, col = "grey60", las = 1,
+       xlim = range(S) / 1000, ylim = c(0, max(recLag(stks$free)) / 1e6),
+       xlab = "SSB (thousand t)", ylab = "recruits at age 1 (millions)", main = "Fitted SR curves")
+  for (i in 2:length(srfits)) lines(S / 1000, srCurve(srfits[[i]], S) / 1e6, col = cols[i], lwd = 2)
+  legend("topright", c("free recruitment", names(srfits)[-1]), col = c("grey60", cols[-1]),
+         pch = c(16, rep(NA, length(srfits) - 1)), lwd = c(NA, rep(2, length(srfits) - 1)),
+         bty = "n", cex = 0.8)
+})
 
 # A smaller CV pulls recruitment towards the curve. If it is too small the
 # curve dominates and the fit to the catches degrades.
@@ -77,6 +80,9 @@ print(tab)
 
 years <- as.numeric(dimnames(ple4)$year)
 recs <- sapply(cvfits, function(f) yearly(stock.n(f)[1, ])) / 1e6
-matplot(years, recs, type = "l", lty = 1, lwd = 2, col = fitCols(length(cvs)), las = 1,
-        xlab = "", ylab = "recruits (millions)", main = "bevholt: effect of CV")
-legend("topright", paste("CV =", cvs), col = fitCols(length(cvs)), lwd = 2, bty = "n", cex = 0.8)
+savePng("cv-effect", {
+  par(mar = c(4, 5, 2, 1))
+  matplot(years, recs, type = "l", lty = 1, lwd = 2, col = fitCols(length(cvs)), las = 1,
+          xlab = "", ylab = "recruits (millions)", main = "bevholt: effect of CV")
+  legend("topright", paste("CV =", cvs), col = fitCols(length(cvs)), lwd = 2, bty = "n", cex = 0.8)
+})

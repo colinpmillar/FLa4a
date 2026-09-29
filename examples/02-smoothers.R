@@ -12,6 +12,7 @@
 
 library(FLa4a)
 source("examples/helpers.R")
+outDir <- exampleDir("02-smoothers")  # plots are saved here
 
 data(ple4)
 data(ple4.indices)
@@ -40,15 +41,16 @@ print(fitTable(ffits))
 
 # F surfaces on a common colour scale
 zlim <- c(0, max(sapply(ffits, function(f) max(harvest(f)))))
-op <- par(mfrow = c(3, 2), mar = c(3, 4, 2, 1))
-for (n in names(ffits)) plotAgeYear(harvest(ffits[[n]]), main = n, zlim = zlim)
-par(op)
+savePng("F-surfaces", height = 900, {
+  par(mfrow = c(3, 2), mar = c(3, 4, 2, 1))
+  for (n in names(ffits)) plotAgeYear(harvest(ffits[[n]]), main = n, zlim = zlim)
+})
 
 # selectivity in three years: only the non-separable models let it change
-plotSelectivity(ffits, years = c(1970, 1995, 2015))
+savePng("selectivity", plotSelectivity(ffits, years = c(1970, 1995, 2015)))
 
 # stock trajectories
-plotSummary(lapply(ffits, function(f) ple4 + f), main = "fmodel comparison")
+savePng("stock-summary", plotSummary(lapply(ffits, function(f) ple4 + f), main = "fmodel comparison"))
 
 #---------------------------------------------------------------------
 # 2. Catchability: how flexible should q at age be?
@@ -72,9 +74,11 @@ qAtAge <- sapply(qfits, function(f) {
   Z <- harvest(f)[ages, years] + m(ple4)[ages, years]
   c((index(f)[[bts]] / (stock.n(f)[ages, years] * exp(-Z * t_bts)))[, "2010"])
 })
-matplot(1:10, qAtAge, type = "l", lty = 1, lwd = 2, col = fitCols(ncol(qAtAge)), las = 1,
-        xlab = "age", ylab = "catchability", main = paste("Catchability at age:", bts))
-legend("topleft", colnames(qAtAge), col = fitCols(ncol(qAtAge)), lwd = 2, bty = "n")
+savePng("catchability", {
+  matplot(1:10, qAtAge, type = "l", lty = 1, lwd = 2, col = fitCols(ncol(qAtAge)), las = 1,
+          xlab = "age", ylab = "catchability", main = paste("Catchability at age:", bts))
+  legend("topleft", colnames(qAtAge), col = fitCols(ncol(qAtAge)), lwd = 2, bty = "n")
+})
 
 #---------------------------------------------------------------------
 # 3. Recruitment: free, or a smooth trend
@@ -89,6 +93,8 @@ print(fitTable(rfits))
 
 years <- as.numeric(dimnames(ple4)$year)
 recs <- sapply(rfits, function(f) yearly(stock.n(f)[1, ]))
-matplot(years, recs, type = "l", lty = 1, lwd = 2, col = fitCols(ncol(recs)), las = 1,
-        xlab = "", ylab = "recruits (thousands)", main = "Recruitment submodels")
-legend("topright", colnames(recs), col = fitCols(ncol(recs)), lwd = 2, bty = "n")
+savePng("recruitment", {
+  matplot(years, recs, type = "l", lty = 1, lwd = 2, col = fitCols(ncol(recs)), las = 1,
+          xlab = "", ylab = "recruits (thousands)", main = "Recruitment submodels")
+  legend("topright", colnames(recs), col = fitCols(ncol(recs)), lwd = 2, bty = "n")
+})
