@@ -13,6 +13,17 @@ install.packages("FLCore", repos = "https://flr.r-universe.dev")
 remotes::install_github("colinpmillar/FLa4a", ref = "claude/peaceful-babbage-if9ubk")
 ```
 
+### Dev container
+
+The `.devcontainer/` folder defines an R 4.5 environment with RTMB, FLCore,
+mgcv, testthat, roxygen2 and devtools installed. Open the repository in VS Code
+and choose *Dev Containers: Reopen in Container* (or open it in GitHub
+Codespaces). The package is installed when the container is created. Then:
+
+```r
+devtools::load_all()   # or devtools::test(), devtools::check()
+```
+
 ## Usage
 
 ```r

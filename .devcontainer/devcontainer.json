@@ -1,0 +1,15 @@
+{
+  "name": "FLa4a (RTMB)",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "REditorSupport.r"
+      ]
+    }
+  },
+  "postCreateCommand": "R CMD INSTALL --no-docs .",
+  "remoteUser": "root"
+}
