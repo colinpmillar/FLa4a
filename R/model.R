@@ -36,7 +36,7 @@ linearPredictors <- function(par, dat) {
   }
   list(logF = lp("f", par$fpar), logQ = lp("q", par$qpar), logV = lp("v", par$vpar),
        logN1 = lp("n1", par$n1par), logR = lp("r", par$rpar),
-       sra = lp("sra", par$rapar), srb = lp("srb", par$rbpar))
+       sra = lp("sra", par$rapar), srb = lp("srb", par$rbpar), logsdR = par$logsdR)
 }
 
 # Negative log-likelihood components (one per fleet, then the SR model)
@@ -106,7 +106,8 @@ a4aNllEta <- function(eta, dat, report = FALSE) {
         v <- exp(b)
         log(6 * h * v * S) - log(dat$spr0 * ((h + 1) * v + (5 * h - 1) * S))
       })
-    nllSR <- -sum(dnorm(logN[1, yrs], predLogR, sqrt(log(dat$srCV^2 + 1)), log = TRUE))
+    sdR <- if (dat$randomRec) exp(eta$logsdR) else sqrt(log(dat$srCV^2 + 1))
+    nllSR <- -sum(dnorm(logN[1, yrs], predLogR, sdR, log = TRUE))
     nllComp[dat$nS + 2] <- nllSR
   }
 
@@ -202,6 +203,11 @@ etaMap <- function(data) {
     add(dat[[paste0("Z", key)]], rows, colOff[["re"]] + dat[[paste0("i", key)]])
     rows <- rows + nrow(X)
   }
+  # the log sd of recruitment enters the likelihood directly
+  if (length(data$par$logsdR)) {
+    trip[[length(trip) + 1]] <- data.frame(i = rows + 1, j = colOff[["logsdR"]] + 1, x = 1)
+    rows <- rows + 1
+  }
   t <- do.call(rbind, trip)
   Matrix::sparseMatrix(i = t$i, j = t$j, x = t$x, dims = c(rows, nb))
 }
@@ -252,44 +258,59 @@ fitA4a <- function(data, fit = "assessment", verbose = FALSE, control = list(),
   dat <- data$dat
   ctrl <- utils::modifyList(list(eval.max = 1e4, iter.max = 1e4), control)
   penalised <- length(data$par$re) > 0
+  randomRec <- isTRUE(dat$randomRec)
 
   obj <- MakeADFun(function(p) a4aNll(p, dat), data$par, silent = !verbose)
   np <- length(obj$par)
   lamPos <- np - length(data$par$loglambda) + seq_along(data$par$loglambda)
-  bPos <- setdiff(seq_len(np), lamPos)
+  # hyper parameters (log smoothing parameters, log sd of recruitment) are
+  # held fixed in penalised fits and have no place in the coefficients' Hessian
+  sdRPos <- which(names(obj$par) == "logsdR")
+  bPos <- setdiff(seq_len(np), c(lamPos, sdRPos))
   full <- obj$par
   maxgrad <- NULL
+  marginal <- NA_real_
 
-  if (!penalised) {
-    opt <- stats::nlminb(full, obj$fn, obj$gr, control = ctrl)
-    full <- newtonPolish(obj, opt$par)
-    convergence <- opt$convergence
-  } else {
-    hess <- hessianFun(data)
-    sp <- fitSmoothing(obj, hess, data, full, bPos, lamPos, ctrl, verbose)
-    full <- sp$par
-    convergence <- sp$convergence
-    if (sp.method == "laplace") {
-      lap <- fitLaplace(data, full, ctrl, verbose)
-      full <- lap$par
-      convergence <- lap$convergence
-      maxgrad <- lap$maxgrad
-    }
+  # the Hessian of the coefficients (bPos)
+  hess <- if (penalised || randomRec) hessianFun(data)
+  coefHessian <- function(p) {
+    if (is.null(hess)) obj$he(p)[bPos, bPos, drop = FALSE] else hess(p)[bPos, bPos, drop = FALSE]
   }
 
-  marginal <- NA_real_
+  if (!penalised) {
+    fn <- function(x) { full[bPos] <- x; obj$fn(full) }
+    gr <- function(x) { full[bPos] <- x; obj$gr(full)[bPos] }
+    opt <- stats::nlminb(full[bPos], fn, gr, control = ctrl)
+    full[bPos] <- opt$par
+    full <- newtonPolish(obj, full, bPos)
+    convergence <- opt$convergence
+  } else {
+    sp <- fitSmoothing(obj, coefHessian, data, full, bPos, lamPos, ctrl, verbose)
+    full <- sp$par
+    convergence <- sp$convergence
+  }
+
+  # Laplace approximation with smoother coefficients and/or recruitments as
+  # random effects (ML), or all coefficients but the variances (REML)
   if (method == "REML") {
     rem <- fitREML(data, full, ctrl, verbose)
     full <- rem$par
     convergence <- max(convergence, rem$convergence)
     maxgrad <- rem$maxgrad
     marginal <- rem$objective
+  } else if (randomRec || (penalised && sp.method == "laplace")) {
+    random <- c(if (penalised) "re", if (randomRec) "rpar")
+    lap <- fitLaplace(data, full, ctrl, verbose, random)
+    full <- lap$par
+    convergence <- lap$convergence
+    maxgrad <- lap$maxgrad
+    marginal <- lap$objective
   }
 
   pos <- data$colmap$pos
   coefs <- stats::setNames(full[pos], data$pnames)
   report <- obj$report(full)
-  H <- if (penalised) hess(full) else if (fit == "assessment") obj$he(full)
+  H <- if (fit == "assessment" || penalised || randomRec) coefHessian(full)
 
   vcov <- NULL
   if (fit == "assessment") {
@@ -314,14 +335,17 @@ fitA4a <- function(data, fit = "assessment", verbose = FALSE, control = list(),
       vcov <- matrix(NA_real_, length(pos), length(pos))
       convergence <- 1L
     } else {
-      vcov <- V[pos, pos, drop = FALSE]
+      i <- match(pos, bPos)
+      vcov <- V[i, i, drop = FALSE]
     }
     dimnames(vcov) <- list(data$pnames, data$pnames)
   }
 
-  # the data likelihood (with the SR penalty), excluding the smoother priors
+  # the data likelihood, excluding the smoother priors and, when recruitment
+  # is a random effect, its distribution around the SR curve
   comps <- report$nllComp
-  nlogl <- sum(if (penalised) comps[-length(comps)] else comps)
+  nFleet <- dat$nS + 1
+  nlogl <- sum(comps[seq_len(nFleet)]) + if (dat$srID > 0 && !randomRec) comps[[nFleet + 1]] else 0
 
   edf <- numeric(0)
   if (penalised) {
@@ -339,17 +363,36 @@ fitA4a <- function(data, fit = "assessment", verbose = FALSE, control = list(),
       length(b$idx) - sum(Vr[b$idx, b$idx] * penaltyMatrix(b, full[lamPos]))
     }, numeric(1))
     names(edf) <- vapply(dat$blocks, `[[`, "", "label")
-    # Laplace approximation of the marginal likelihood (for ML; with REML
-    # the restricted likelihood is reported instead)
-    if (method == "ML") {
+    # Laplace approximation of the marginal likelihood (when not already
+    # computed by a Laplace or REML fit)
+    if (is.na(marginal)) {
       marginal <- obj$fn(full) + 0.5 * as.numeric(determinant(Hr)$modulus) -
         0.5 * length(re) * log(2 * pi)
     }
   }
 
+  # recruitment as a random effect: its CV and effective degrees of freedom,
+  # n - tr(H_rr^-1 P) with P = X' X / sdR^2 the precision of its distribution
+  # around the SR curve (ignoring the dependence of the curve on SSB)
+  cvR <- NA_real_
+  edfR <- 0
+  if (randomRec) {
+    sdR <- exp(full[sdRPos])
+    cvR <- sqrt(exp(sdR^2) - 1)
+    r <- which(names(obj$par)[bPos] == "rpar")
+    lag <- if (dat$srID == 4) 1 else dat$srAge
+    X <- dat$Xr[seq(1 + lag, dat$nY), , drop = FALSE]
+    Vrr <- tryCatch(solve(H[r, r, drop = FALSE]), error = function(e) NULL)
+    edfR <- if (is.null(Vrr)) NA_real_ else length(r) - sum(Vrr * crossprod(X)) / sdR^2
+  }
+
   list(par = coefs, vcov = vcov, report = report, nlogl = nlogl, objective = marginal,
        loglambda = stats::setNames(full[lamPos], data$penalties), edf = edf,
-       nopar = length(bPos) - length(data$par$re) + sum(edf),
+       cvR = cvR, edfR = edfR,
+       # unpenalised coefficients, plus the smoothers' and recruitment's
+       # effective degrees of freedom
+       nopar = length(bPos) - length(data$par$re) + sum(edf) -
+         (if (randomRec) length(data$par$rpar) - edfR else 0),
        maxgrad = if (is.null(maxgrad)) max(abs(obj$gr(full)[bPos])) else maxgrad,
        convergence = convergence)
 }
@@ -361,12 +404,16 @@ rePositions <- function(data) {
 }
 
 # A few Newton steps to polish an optimum.
-newtonPolish <- function(obj, par) {
-  maxgrad <- function(p) max(abs(obj$gr(p)))
+newtonPolish <- function(obj, par, pos = seq_along(par)) {
+  maxgrad <- function(p) max(abs(obj$gr(p)[pos]))
   for (i in 1:3) {
-    step <- tryCatch(solve(obj$he(par), drop(obj$gr(par))), error = function(e) NULL)
-    if (is.null(step) || !is.finite(obj$fn(par - step)) || maxgrad(par - step) >= maxgrad(par)) break
-    par <- par - step
+    step <- tryCatch(solve(obj$he(par)[pos, pos, drop = FALSE], drop(obj$gr(par))[pos]),
+                     error = function(e) NULL)
+    if (is.null(step)) break
+    new <- par
+    new[pos] <- new[pos] - step
+    if (!is.finite(obj$fn(new)) || maxgrad(new) >= maxgrad(par)) break
+    par <- new
   }
   par
 }
@@ -392,7 +439,7 @@ fitSmoothing <- function(obj, hess, data, par, bPos, lamPos, ctrl, verbose, maxi
   re <- match(rePos, bPos)
   fn <- function(x) { par[bPos] <- x; obj$fn(par) }
   gr <- function(x) { par[bPos] <- x; obj$gr(par)[bPos] }
-  he <- function(x) { par[bPos] <- x; hess(par) }
+  he <- function(x) { par[bPos] <- x; hess(par) }  # the coefficients' Hessian
 
   # penalised likelihood fit given the smoothing parameters: quasi-Newton
   # from a cold start, then Newton steps (with step halving) from the
@@ -519,7 +566,7 @@ pseudoInverse <- function(S) {
 # coefficients a fleet's observations have to support; REML accounts for
 # the coefficients' uncertainty.
 fitREML <- function(data, par, ctrl, verbose) {
-  inner <- setdiff(names(data$par)[lengths(data$par) > 0], c("vpar", "loglambda"))
+  inner <- setdiff(names(data$par)[lengths(data$par) > 0], c("vpar", "loglambda", "logsdR"))
   obj <- MakeADFun(function(p) a4aNll(p, data$dat), relistPar(par, data$par), random = inner,
                    silent = !verbose)
   opt <- stats::nlminb(obj$par, obj$fn, obj$gr, control = ctrl)
@@ -546,13 +593,14 @@ laplaceConvergence <- function(opt, maxgrad, tol = 0.01) {
 # Maximise the Laplace approximation of the marginal likelihood with RTMB,
 # the smoother coefficients being random effects, starting from `par`
 # (a vector in unlist(data$par) order).
-fitLaplace <- function(data, par, ctrl, verbose) {
-  obj <- MakeADFun(function(p) a4aNll(p, data$dat), relistPar(par, data$par), random = "re",
+fitLaplace <- function(data, par, ctrl, verbose, random = "re") {
+  obj <- MakeADFun(function(p) a4aNll(p, data$dat), relistPar(par, data$par), random = random,
                    silent = !verbose)
   opt <- stats::nlminb(obj$par, obj$fn, obj$gr, control = ctrl)
-  obj$fn(opt$par)
+  objective <- obj$fn(opt$par)
   maxgrad <- max(abs(obj$gr(opt$par)))
-  list(par = obj$env$last.par, convergence = laplaceConvergence(opt, maxgrad), maxgrad = maxgrad)
+  list(par = obj$env$last.par, objective = objective,
+       convergence = laplaceConvergence(opt, maxgrad), maxgrad = maxgrad)
 }
 
 # A vector in unlist(par) order back into the parameter list `par`.

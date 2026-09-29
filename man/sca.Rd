@@ -76,7 +76,11 @@ comparable: use ML for model selection.}
 \item{control}{list of control options passed to \code{\link[stats:nlminb]{stats::nlminb()}}.}
 }
 \value{
-an \linkS4class{a4aFit} object. For penalised fits, \code{fitSumm()}
+an \linkS4class{a4aFit} object. With an estimated stock-recruitment CV
+(e.g. \code{srmodel = ~ bevholt(CV = NA)}), recruitment is a random effect:
+\code{fitSumm()} reports the estimated CV (\code{srr:cv}), the recruitments'
+effective degrees of freedom (\code{edf:recruitment}) and the marginal
+likelihood, and \code{nlogl} excludes the recruitment distribution. For penalised fits, \code{fitSumm()}
 reports the effective degrees of freedom of each smoother (\verb{edf:}), the
 marginal negative log-likelihood (\code{nlogl:marginal}; the restricted
 likelihood for REML fits), and \code{nopar} counts

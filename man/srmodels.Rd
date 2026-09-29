@@ -20,7 +20,10 @@ geomean(CV = 0.5, a = ~1)
 bevholtSV(CV = 0.5, SPR0 = 1, a = ~1, b = ~1)
 }
 \arguments{
-\item{CV}{coefficient of variation of recruitment around the curve.}
+\item{CV}{coefficient of variation of recruitment around the curve, or
+\code{NA} to estimate it. With an estimated CV, recruitment in each year is a
+random effect with the lognormal distribution around the curve, and is
+integrated out with the Laplace approximation (see \code{\link[=sca]{sca()}}).}
 
 \item{a, b}{formulas for the (log-scale) parameters.}
 

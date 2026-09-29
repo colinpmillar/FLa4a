@@ -1,5 +1,14 @@
 # FLa4a 2.0.0.9000
 
+* Recruitment as a random effect: an SR model with `CV = NA`, e.g.
+  `srmodel = ~ bevholt(CV = NA)`, estimates the recruitment variability
+  (log sd) and integrates the recruitments out of the likelihood by the
+  Laplace approximation, rather than fixing the CV. `fitSumm()` reports the
+  estimated CV (`srr:cv`) and the recruitments' effective degrees of
+  freedom (`edf:recruitment`). Works with `method = "REML"` and penalised
+  smoothers. In simulations it improves recruitment estimates when the data
+  are weak; the CV tends to be underestimated (about 25% with noisy data).
+
 * `sca(..., method = "REML")` estimates the observation variances and any
   smoothing parameters by restricted maximum likelihood, integrating out
   all other coefficients. Maximum likelihood underestimates the variances

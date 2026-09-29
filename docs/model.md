@@ -195,8 +195,13 @@ $$
 \qquad \sigma_R^2 = \log(\text{CV}^2 + 1),
 $$
 
-over years $y > a_0$ (years $y > 1$ for `geomean`), with the CV given by the
-user.
+over years $y > a_0$ (years $y > 1$ for `geomean`). The CV is either given
+by the user, or, with `CV = NA`, estimated: $\sigma_R$ becomes a parameter
+(estimated as $\log \sigma_R$) and the yearly recruitments become random
+effects with the distribution
+$\log \tilde R_y \sim \mathcal N(\log \hat R_y, \sigma_R^2)$, integrated out
+of the likelihood (Section 3.4). The reported CV is
+$\sqrt{e^{\sigma_R^2} - 1}$.
 
 ### 2.7 Penalised smoothers
 
@@ -246,7 +251,9 @@ $$
 
 The terms are reported separately in `fitSumm()` as `nlogl:<fleet>`,
 `nlogl:srr` and `nlogl:smooth`. The data negative log-likelihood reported as
-`nlogl` is $-\sum_f \ell_f - \ell_{\text{SR}}$, without the smoother priors.
+`nlogl` is $-\sum_f \ell_f - \ell_{\text{SR}}$, without the smoother priors;
+when recruitment is a random effect, $\ell_{\text{SR}}$ is its distribution
+and is left out of `nlogl` too.
 
 ## 3. Fitting
 
@@ -385,14 +392,57 @@ between the null-space dimension and $n_b$. The covariance of all coefficients
 is the inverse of the penalised Hessian at the estimates, the Bayesian
 posterior covariance given $\hat{\boldsymbol\lambda}$.
 
-### 3.4 REML
+### 3.4 Recruitment as a random effect
+
+With an estimated SR CV, the likelihood cannot be maximised jointly over the
+recruitments and $\sigma_R$: recruitment could follow the curve exactly and
+drive $\sigma_R$ to zero. The recruitment coefficients $\boldsymbol\beta_R$
+are instead integrated out:
+
+$$
+\mathcal L_{\text{LA}}(\boldsymbol\beta_{-R}, \boldsymbol\theta, \log\sigma_R)
+= \mathcal L(\hat{\boldsymbol\beta}_R, \boldsymbol\beta_{-R}, \boldsymbol\theta)
++ \tfrac12 \log \lvert \mathbf H_{RR} \rvert - \tfrac{n_R}{2} \log 2\pi ,
+$$
+
+where $\hat{\boldsymbol\beta}_R$ minimises $\mathcal L$ given the other
+parameters and $\mathbf H_{RR}$ is its Hessian. The fit has two stages:
+
+1. fit with $\sigma_R$ held at its starting value (CV = 0.5): by maximum
+   likelihood (Section 3.1) or, with penalised smoothers, by Fellner-Schall
+   (Section 3.3);
+2. from there, maximise $\mathcal L_{\text{LA}}$ with RTMB's Laplace
+   approximation, the recruitments (and any smoother coefficients, whose
+   smoothing parameters are then estimated as in `sp.method = "laplace"`)
+   being random effects.
+
+$\mathcal L_{\text{LA}}$ is reported as `nlogl:marginal`. The covariance of
+the coefficients is the inverse Hessian of $\mathcal L$ at the estimates
+(conditional on $\hat\sigma_R$). The recruitments' effective degrees of
+freedom are
+
+$$
+\text{edf}_R = n_R - \operatorname{tr}\!\big(\mathbf H_{RR}^{-1} \mathbf P\big),
+\qquad \mathbf P = \mathbf X_{R}^\top \mathbf X_{R} / \hat\sigma_R^2 ,
+$$
+
+where $\mathbf X_R$ holds the rows of the recruitment design matrix for the
+years with an SR prior; $\mathbf P$ ignores the dependence of the curve on
+SSB. With informative data $\text{edf}_R$ is close to $n_R$ and recruitment is
+barely shrunk towards the curve; with noisy data the shrinkage improves the
+recruitment estimates. Part of the recruitment variability is then attributed
+to observation error, so $\hat\sigma_R$ tends to be low (by about 25% in
+simulations with catch and survey sds of 0.1-0.5).
+
+### 3.5 REML
 
 Maximum likelihood estimates the observation variances as if the other
 coefficients were known, and so underestimates them. With `method = "REML"`
 the variance parameters and smoothing parameters instead maximise the
 restricted likelihood, in which all other coefficients
 $\boldsymbol\gamma = (\boldsymbol\beta, \mathbf u)$ are integrated out with flat
-priors on the unpenalised ones:
+priors on the unpenalised ones (and the recruitment distribution as the prior
+of random recruitments, whose $\sigma_R$ is then an outer parameter too):
 
 $$
 \mathcal L_{\text{REML}}(\boldsymbol\theta, \boldsymbol\rho)
@@ -425,12 +475,12 @@ the AD gradients of $\mathcal L_{\text{REML}}$. REML likelihoods of models with
 different submodels for $F$, catchability, initial numbers or recruitment are
 not comparable; models are compared by AIC under ML.
 
-### 3.5 Convergence
+### 3.6 Convergence
 
 A fit is flagged as not converged (`fitSumm()["convergence", ]` = 1) when:
 
 * `nlminb` does not report success. For the Laplace-based optimisations
-  (`sp.method = "laplace"`, REML), whose objective carries a little numerical
+  (`sp.method = "laplace"`, random recruitment, REML), whose objective carries a little numerical
   noise from the inner optimisation, "false convergence" is accepted when the
   largest absolute outer gradient is below 0.01;
 * the smoothing parameters do not converge, or the final penalised fit has
@@ -438,14 +488,14 @@ A fit is flagged as not converged (`fitSumm()["convergence", ]` = 1) when:
 * the Hessian used for the covariance is not positive definite, or the
   smoother coefficients' Hessian is singular.
 
-### 3.6 Fit summaries
+### 3.7 Fit summaries
 
 For unpenalised fits `nopar` is the number of coefficients $p$. For penalised
-fits it counts the unpenalised coefficients plus the smoothers' effective
-degrees of freedom,
+fits, and fits with random recruitment, it counts the unpenalised coefficients
+plus the effective degrees of freedom of the smoothers and recruitments,
 
 $$
-\texttt{nopar} = p_{\beta} + p_{\theta} + \sum_b \text{edf}_b ,
+\texttt{nopar} = p_{\beta} + p_{\theta} + \sum_b \text{edf}_b \;(+\, \text{edf}_R) ,
 $$
 
 and `logLik()` returns $-\texttt{nlogl}$ with that many degrees of freedom, so
@@ -455,7 +505,7 @@ $$
 \text{AIC} = 2\,\texttt{nlogl} + 2\,\texttt{nopar}
 $$
 
-is a conditional AIC for penalised fits.
+is a conditional AIC for penalised fits and fits with random recruitment.
 
 ## 4. After fitting
 
@@ -539,9 +589,10 @@ the `fbar` ages $\mathcal A_F$, and SSB is $\hat S_y = \tilde S_y e^{c_0}$.
 | 3.3 Fellner-Schall | `fitSmoothing()`, `pseudoInverse()` (`R/model.R`) |
 | 3.3 Laplace | `fitLaplace()` (`R/model.R`) |
 | 3.3 edf, marginal likelihood | `fitA4a()` (`R/model.R`) |
-| 3.4 REML | `fitREML()`, `fitA4a()` (`R/model.R`) |
-| 3.5 Convergence | `laplaceConvergence()`, `fitSmoothing()`, `fitA4a()` (`R/model.R`) |
-| 3.6 Summaries | `sca()` (`R/sca.R`); `logLik()` (`R/a4aFit-class.R`) |
+| 3.4 Random recruitment | `fitA4a()`, `fitLaplace()` (`R/model.R`); `srList()` (`R/srmodels.R`) |
+| 3.5 REML | `fitREML()`, `fitA4a()` (`R/model.R`) |
+| 3.6 Convergence | `laplaceConvergence()`, `fitSmoothing()`, `fitA4a()` (`R/model.R`) |
+| 3.7 Summaries | `sca()` (`R/sca.R`); `logLik()` (`R/a4aFit-class.R`) |
 | 4.1 Back-transformation | `predictQuants()` (`R/sca.R`) |
 | 4.2-4.3 Prediction, simulation | `predict()`, `simulate()`, `modelAt()` (`R/simulate.R`) |
 | 4.4 Confidence intervals | `derivedCI()` (`R/uncertainty.R`) |

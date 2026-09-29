@@ -57,7 +57,11 @@
 #'   comparable: use ML for model selection.
 #' @param verbose logical, print optimiser output.
 #' @param control list of control options passed to [stats::nlminb()].
-#' @return an [a4aFit-class] object. For penalised fits, `fitSumm()`
+#' @return an [a4aFit-class] object. With an estimated stock-recruitment CV
+#'   (e.g. `srmodel = ~ bevholt(CV = NA)`), recruitment is a random effect:
+#'   `fitSumm()` reports the estimated CV (`srr:cv`), the recruitments'
+#'   effective degrees of freedom (`edf:recruitment`) and the marginal
+#'   likelihood, and `nlogl` excludes the recruitment distribution. For penalised fits, `fitSumm()`
 #'   reports the effective degrees of freedom of each smoother (`edf:`), the
 #'   marginal negative log-likelihood (`nlogl:marginal`; the restricted
 #'   likelihood for REML fits), and `nopar` counts
@@ -142,10 +146,12 @@ sca <- function(stock, indices,
                        dimnames = list(names(first$loglambda), iter = seq_len(nit))))
 
   penalised <- length(first$edf) > 0
-  marginal <- penalised || method == "REML"
+  randomRec <- isTRUE(first$data$dat$randomRec)
+  marginal <- penalised || randomRec || method == "REML"
   comps <- c(fleets, if (first$data$dat$srID > 0) "srr", if (penalised) "smooth")
   summNames <- c("nopar", "nlogl", "maxgrad", "nobs", "convergence", paste0("nlogl:", comps),
-                 if (marginal) "nlogl:marginal", if (penalised) paste0("edf:", names(first$edf)))
+                 if (marginal) "nlogl:marginal", if (penalised) paste0("edf:", names(first$edf)),
+                 if (randomRec) c("edf:recruitment", "srr:cv"))
   out@fitSumm <- matrix(NA_real_, length(summNames), nit, dimnames = list(summNames, iter = seq_len(nit)))
 
   for (i in seq_len(nit)) {
@@ -159,7 +165,8 @@ sca <- function(stock, indices,
     out@centering[, i] <- f$data$centering
     out@smoothing[, i] <- f$loglambda
     out@fitSumm[, i] <- c(f$nopar, f$nlogl, f$maxgrad, f$data$nobs, f$convergence,
-                          f$report$nllComp, if (marginal) f$objective, if (penalised) f$edf)
+                          f$report$nllComp, if (marginal) f$objective, if (penalised) f$edf,
+                          if (randomRec) c(f$edfR, f$cvR))
   }
   units(out@harvest) <- "f"
   out

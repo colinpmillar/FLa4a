@@ -137,6 +137,9 @@ a4aData <- function(stock, indices, fmodel, qmodel, vmodel, n1model, srmodel,
     }
     nre <- nre + length(rand)
   }
+  # log sd of recruitment around the SR curve, when estimated (starting at CV = 0.5)
+  estimateCV <- isTRUE(sr$sr$estimateCV)
+  par$logsdR <- if (estimateCV) log(sqrt(log(1 + 0.5^2))) else numeric(0)
   par$re <- numeric(nre)
   par$loglambda <- numeric(nlam)
 
@@ -159,7 +162,8 @@ a4aData <- function(stock, indices, fmodel, qmodel, vmodel, n1model, srmodel,
     bmask = matrix(bmask, nA, length(indices)),
     plusgroup = !is.na(range(stock)["plusgroup"]),
     srID = if (is.null(sr$sr)) 0L else sr$sr$ID,
-    srCV = if (is.null(sr$sr)) 0 else sr$sr$srrCV,
+    srCV = if (is.null(sr$sr) || estimateCV) 0 else sr$sr$srrCV,
+    randomRec = estimateCV,
     spr0 = if (is.null(sr$sr)) 1 else sr$sr$SPR0,
     srAge = ages[1],
     blocks = blocks), mats)

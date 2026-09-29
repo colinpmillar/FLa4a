@@ -15,7 +15,10 @@
 #' * `bevholtSV`: Beverton-Holt parametrised by steepness (`a`, logit-scaled
 #'   onto 0.2 to 1) and virgin biomass (`b`), given `SPR0`.
 #'
-#' @param CV coefficient of variation of recruitment around the curve.
+#' @param CV coefficient of variation of recruitment around the curve, or
+#'   `NA` to estimate it. With an estimated CV, recruitment in each year is a
+#'   random effect with the lognormal distribution around the curve, and is
+#'   integrated out with the Laplace approximation (see [sca()]).
 #' @param a,b formulas for the (log-scale) parameters.
 #' @param SPR0 spawners per recruit at F = 0 (`bevholtSV` only).
 #' @return a list describing the model.
@@ -23,8 +26,9 @@
 NULL
 
 srList <- function(name, id, CV, a, b, SPR0 = 1) {
-  if (!is.numeric(CV) || length(CV) != 1 || CV <= 0) stop("CV must be a single positive number")
-  list(srr = name, ID = id, srrCV = CV, a = a, b = b, SPR0 = SPR0)
+  if (length(CV) != 1 || !(is.na(CV) || (is.numeric(CV) && CV > 0)))
+    stop("CV must be a single positive number, or NA to estimate it")
+  list(srr = name, ID = id, srrCV = as.numeric(CV), estimateCV = is.na(CV), a = a, b = b, SPR0 = SPR0)
 }
 
 #' @rdname srmodels
