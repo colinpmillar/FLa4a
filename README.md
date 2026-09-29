@@ -1,43 +1,70 @@
-# FLa4a
-- Version: 1.9.5
-- Author: Colin P. Millar and Ernesto Jardim
-- Maintainer: Colin P. Millar <colin.millar AT ices.dk>
-- Repository: <https://github.com/flr/FLa4a/>
-- Bug reports: <https://github.com/flr/FLa4a/issues>
+# FLa4a (RTMB)
 
-
-[![FLa4a status badge](https://flr.r-universe.dev/badges/FLa4a)](https://flr.r-universe.dev/FLa4a)
-![GitHub issues](https://img.shields.io/github/issues/flr/FLa4a)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/flr/FLa4a)
-
-## Overview
-FLa4a implements the Assesment For All (a4a) initiative stock assessment model, a simple and robust statistical catch-at-age model.
+A minimal re-implementation of the [a4a](https://github.com/flr/FLa4a)
+statistical catch-at-age model. The model is written in plain R and
+differentiated with [RTMB](https://github.com/kaskr/RTMB), with no ADMB
+executable and no C++ template.
 
 ## Installation
-To install this package, start R and enter:
 
-    install.packages(c("copula","triangle", "coda"))
+```r
+install.packages(c("RTMB", "mgcv"))
+install.packages("FLCore", repos = "https://flr.r-universe.dev")
+remotes::install_github("colinpmillar/FLa4a", ref = "claude/peaceful-babbage-if9ubk")
+```
 
-followed by
+## Usage
 
-	install.packages("FLa4a", repos=c(FLR="https://flr.r-universe.dev", CRAN="https://cloud.r-project.org"))
+```r
+library(FLa4a)
+data(ple4)
+data(ple4.indices)
 
-## Documentation
-- [Help pages](http://www.flrproject.org/FLa4a/reference/index.html)
-- [Vignettes](http://www.flrproject.org/FLa4a/articles/index.html)
+fit <- sca(ple4, ple4.indices["BTS-Combined (all)"],
+           fmodel  = ~ s(age, k = 5) + s(year, k = 20),
+           qmodel  = list(~ s(age, k = 4)),
+           srmodel = ~ bevholt(CV = 0.3))
+fit
+stk <- ple4 + fit
+AIC(fit)
+```
 
-## References
-- [Jardim, et.al, 2014](http://icesjms.oxfordjournals.org/content/early/2014/04/03/icesjms.fsu050.abstract)
-- [Millar, et.al, 2014](http://icesjms.oxfordjournals.org/content/early/2014/03/31/icesjms.fsu043.abstract) 
-- [Scott, et.al, 2016](http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0154922)
+## Code layout
+
+| file | contents |
+|------|----------|
+| `R/sca.R` | `sca()`: loops over iterations and assembles the `a4aFit` |
+| `R/data.R` | observations, biology and submodel design matrices for one iteration |
+| `R/model.R` | the RTMB objective function `a4aNll()` and optimiser `fitA4a()` |
+| `R/formula.R` | `getX()`: formula to design matrix (mgcv smoothers supported) |
+| `R/srmodels.R` | stock-recruitment models: `bevholt()`, `ricker()`, `hockey()`, `geomean()`, `bevholtSV()` |
+| `R/defaults.R` | default submodels |
+| `R/a4aFit-class.R` | result class, accessors, `logLik()`, `FLStock + a4aFit` |
+
+## Model
+
+For ages *a* and years *y*, each submodel is a linear predictor
+`X %*% beta` on the log scale:
+
+- log F<sub>ay</sub> (`fmodel`), log q<sub>ay</sub> per index (`qmodel`),
+  log observation sd per fleet (`vmodel`), log N in the first year
+  (`n1model`) and log recruitment (`srmodel`)
+- N<sub>a+1,y+1</sub> = N<sub>ay</sub> exp(-F<sub>ay</sub> - M<sub>ay</sub>), with an optional plus group
+- catches follow the Baranov equation; indices are q N exp(-Z t) (biomass
+  indices sum q N w exp(-Z t) over the index ages)
+- log observations are normal, weighted by inverse relative variances if given
+- an optional stock-recruitment curve adds a lognormal penalty on recruitment
+
+Results agree with the ADMB implementation (FLa4a 1.9.7). The tests pin the ADMB
+likelihoods for separable, smooth, stock-recruitment and biomass-index models.
+
+## Not (yet) included
+
+Compared with FLa4a 1.9.x, this version drops MCMC, `simulate`/`predict`,
+residual and diagnostic classes, `a4aM`/growth/length-to-age tools, multiple
+units/seasons/areas, and the `trawl()` formula helper. The next step is
+efficient sparse estimation of penalised 1D and 2D smoothers.
 
 ## License
-Copyright (c) 2012-2022 European Union. European Commission Joint Research Centre D.02. Released under the [EUPL 1.1](https://joinup.ec.europa.eu/community/eupl/home).
 
-## Contact
-You are welcome to:
-
-- Submit suggestions and bug-reports at: <https://github.com/flr/FLa4a/issues>
-- Send a pull request on: <https://github.com/flr/FLa4a/>
-- Compose a friendly e-mail to the maintainer, see `packageDescription('FLa4a')`
-
+EUPL
