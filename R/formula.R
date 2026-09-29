@@ -20,7 +20,11 @@ getX <- function(formula, df, tol = 1e-4) a4aDesign(formula, df, tol)$X
 # Build the design matrix of a submodel together with a design object that
 # can re-evaluate it for new data (e.g. new covariate values) with the same
 # basis and columns: see predictDesign().
-a4aDesign <- function(formula, df, tol = 1e-4) {
+#
+# With `penalise = TRUE`, smoothers (other than those with fx = TRUE) become
+# penalised: their columns are listed in `design$blocks`, each with its
+# penalty matrices, and are estimated as random effects (see a4aNll()).
+a4aDesign <- function(formula, df, tol = 1e-4, penalise = FALSE) {
   opts <- options(contrasts = c(unordered = "contr.sum", ordered = "contr.poly"))
   on.exit(options(opts))
 
@@ -35,19 +39,38 @@ a4aDesign <- function(formula, df, tol = 1e-4) {
   nsp <- length(mgcv::gam(f, data = gdata, fit = FALSE)$sp)
   g <- mgcv::gam(f, data = gdata, sp = if (nsp) rep(1, nsp))
 
-  design <- list(gam = slimGam(g), keep = NULL, formula = formula)
+  design <- list(gam = slimGam(g), keep = NULL, formula = formula, blocks = list())
   X <- predictDesign(design, udf)
 
-  # drop redundant columns
-  qrX <- qr(X)
-  drop <- qrX$pivot[abs(diag(qrX$qr)) < tol]
+  # penalised smoothers; their penalties make them identifiable, so only
+  # the other columns are checked for redundancy
+  pen <- if (penalise) Filter(function(sm) !isTRUE(sm$fixed) && length(sm$S) > 0, g$smooth) else list()
+  randCols <- unlist(lapply(pen, function(sm) sm$first.para:sm$last.para))
+  fixCols <- setdiff(seq_len(ncol(X)), randCols)
+
+  qrX <- qr(X[, fixCols, drop = FALSE])
+  drop <- fixCols[qrX$pivot[abs(diag(qrX$qr)) < tol]]
   if (length(drop)) {
     warning(deparse1(formula), " has ", length(drop), " redundant parameter(s), removing: ",
             paste(colnames(X)[drop], collapse = ", "), call. = FALSE)
   }
   design$keep <- setdiff(seq_len(ncol(X)), drop)
+  design$blocks <- lapply(pen, function(sm) {
+    penaltyBlock(sm, match(sm$first.para:sm$last.para, design$keep))
+  })
 
   list(X = X[match(key, do.call(paste, udf)), design$keep, drop = FALSE], design = design)
+}
+
+# A penalised smoother: its columns in the design matrix, its penalty
+# matrices S_j (sparse) and an orthonormal basis N of the null space of
+# sum(S_j), the directions the penalty leaves unpenalised.
+penaltyBlock <- function(sm, cols) {
+  sparse <- function(x) methods::as(Matrix::Matrix(x, sparse = TRUE), "CsparseMatrix")
+  e <- eigen(Reduce(`+`, sm$S), symmetric = TRUE)
+  N <- e$vectors[, e$values < max(e$values) * 1e-8, drop = FALSE]
+  list(label = sm$label, cols = cols, S = lapply(sm$S, sparse),
+       N = N, NN = if (ncol(N)) sparse(tcrossprod(N)))
 }
 
 # Evaluate a submodel design matrix at new data.

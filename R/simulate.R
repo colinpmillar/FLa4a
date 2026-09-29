@@ -24,7 +24,7 @@
 setMethod("predict", "a4aFit", function(object, stock, indices, covar = list(), ...) {
   indices <- prepIndices(indices)
   m <- modelAt(object, stock, indices, covar)
-  predictQuants(list(report = m$obj$report(m$par)), m$data, iter(stock, 1),
+  predictQuants(list(report = m$report(m$par)), m$data, iter(stock, 1),
                 FLIndices(lapply(indices, iter, 1)))
 })
 
@@ -78,7 +78,7 @@ setMethod("simulate", "a4aFit", function(object, nsim = 1, seed = NULL, stock, i
   m <- NULL
   for (i in seq_len(nsim)) {
     if (is.null(m) || ncv > 1) m <- modelAt(object, stock, indices, lapply(covar, iterOf, i))
-    rep <- m$obj$report(pars[i, ])
+    rep <- m$report(pars[i, ])
     q <- predictQuants(list(report = rep), m$data, stock, indices)
 
     # lognormal observation error at the observed cells
@@ -123,7 +123,16 @@ modelAt <- function(object, stock, indices, covar = list()) {
                   covar = lapply(cv, iter, 1), designs = object@design,
                   centering = c(object@centering[, 1]))
   obj <- MakeADFun(function(p) a4aNll(p, data$dat), data$par, silent = TRUE)
-  list(data = data, obj = obj, par = c(coef(object)[, 1]))
+  # evaluate the model at a coefficient vector (in design column order), with
+  # penalised smoother coefficients and log smoothing parameters as fitted
+  lam <- if (length(object@smoothing)) object@smoothing[, 1] else numeric(0)
+  report <- function(coefs) {
+    p <- numeric(length(obj$par))
+    p[data$colmap$pos] <- coefs
+    p[length(p) - length(lam) + seq_along(lam)] <- lam
+    obj$report(p)
+  }
+  list(data = data, report = report, par = c(coef(object)[, 1]))
 }
 
 # Put observation-level values back into FLQuants shaped like the catch and

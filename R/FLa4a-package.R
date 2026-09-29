@@ -4,6 +4,6 @@
 #' The main function is [sca()].
 #'
 #' @import methods FLCore
-#' @importFrom RTMB MakeADFun ADoverload REPORT dnorm logspace_add matrix colSums
+#' @importFrom RTMB MakeADFun ADoverload REPORT dnorm dgmrf logspace_add matrix colSums
 #' @keywords internal
 "_PACKAGE"

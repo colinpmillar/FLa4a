@@ -47,6 +47,17 @@ stk <- ple4 + fit
 AIC(fit)
 ```
 
+### Penalised smoothers
+
+```r
+# a generous basis; the smoothing parameter is estimated
+fit <- sca(ple4, ple4.indices["BTS-Combined (all)"],
+           fmodel = ~ s(age, k = 5) + s(year, k = 40, bs = "ps"),
+           qmodel = list(~ s(age, k = 4)), penalise = "fmodel")
+smoothing(fit)   # log smoothing parameters
+fitSumm(fit)     # includes the effective degrees of freedom of each smoother
+```
+
 ### Simulation with covariates
 
 ```r
@@ -72,7 +83,7 @@ smoothers, covariates and stock-recruitment models.
 |------|----------|
 | `R/sca.R` | `sca()`: loops over iterations and assembles the `a4aFit` |
 | `R/data.R` | observations, biology and submodel design matrices for one iteration |
-| `R/model.R` | the RTMB objective function `a4aNll()` and optimiser `fitA4a()` |
+| `R/model.R` | the RTMB objective function `a4aNll()`, the smoother priors, the sparse Hessian, and estimation (`fitA4a()`, Fellner-Schall and Laplace smoothing parameter estimation) |
 | `R/formula.R` | submodel designs: formula to design matrix (mgcv smoothers supported), re-evaluable at new data with the fitted basis |
 | `R/srmodels.R` | stock-recruitment models: `bevholt()`, `ricker()`, `hockey()`, `geomean()`, `bevholtSV()` |
 | `R/simulate.R` | `predict()` and `simulate()`: the fitted model at new covariate values, with observation error |
@@ -92,6 +103,15 @@ For ages *a* and years *y*, each submodel is a linear predictor
   indices sum q N w exp(-Z t) over the index ages)
 - log observations are normal, weighted by inverse relative variances if given
 - an optional stock-recruitment curve adds a lognormal penalty on recruitment
+- with `penalise`, smoothers are penalised: their coefficients have a
+  Gaussian prior with precision sum<sub>j</sub> λ<sub>j</sub> S<sub>j</sub>
+  (the mgcv penalty matrices, flat on the penalty's null space), and the
+  smoothing parameters λ maximise the Laplace approximation of the marginal
+  likelihood, with the coefficients integrated out. `sp.method = "efs"`
+  (default) uses extended Fellner-Schall updates (Wood and Fasiolo, 2017),
+  with Hessians computed from a sparse Hessian of the likelihood in the
+  linear predictors; `sp.method = "laplace"` maximises RTMB's Laplace
+  approximation directly
 
 Results agree with the ADMB implementation (FLa4a 1.9.7). The tests pin the ADMB
 likelihoods for separable, smooth, stock-recruitment and biomass-index models.
@@ -102,8 +122,12 @@ Compared with FLa4a 1.9.x, this version drops MCMC, residual and diagnostic clas
 units/seasons/areas, and the `trawl()` formula helper. `predict()` and
 `simulate()` cover the fitted ages and years (no projections yet), and
 recruitment follows its fitted values unless its submodel uses covariates.
-The next step is
-efficient sparse estimation of penalised 1D and 2D smoothers.
+For penalised smoothers, mgcv's identifiability constraint makes P-spline
+bases dense (keeping them sparse is a possible next step). With a single
+penalised `te(age, year)` F surface, the marginal likelihood for ple4
+favours very little smoothing across ages, so F follows the catch data
+closely; separable main effects plus a penalised `ti(age, year)`
+interaction are faster and better behaved (see `examples/06-penalised-smoothers.R`).
 
 ## License
 

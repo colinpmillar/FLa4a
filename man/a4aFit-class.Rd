@@ -11,6 +11,8 @@
 \alias{vcov,a4aFit-method}
 \alias{fitSumm}
 \alias{fitSumm,a4aFit-method}
+\alias{smoothing}
+\alias{smoothing,a4aFit-method}
 \alias{logLik,a4aFit-method}
 \alias{show,a4aFit-method}
 \alias{print,a4aFit-method}
@@ -31,6 +33,10 @@
 fitSumm(object, ...)
 
 \S4method{fitSumm}{a4aFit}(object)
+
+smoothing(object, ...)
+
+\S4method{smoothing}{a4aFit}(object)
 
 \S4method{logLik}{a4aFit}(object, ...)
 
@@ -78,5 +84,8 @@ convergence flag and likelihood components.}
 \code{\link[=simulate]{simulate()}} to evaluate the submodels at new covariate values.}
 
 \item{\code{covar}}{the covariates used in the fit.}
+
+\item{\code{smoothing}}{log smoothing parameters of penalised smoothers
+(penalty x iter); empty for unpenalised fits.}
 }}
 

@@ -9,6 +9,17 @@
 #' The model is written in R and differentiated with 'RTMB'. Each iteration
 #' of `stock` and `indices` is fitted independently.
 #'
+#' By default smoothers are unpenalised regression splines whose flexibility
+#' is set by the basis dimension `k`. With `penalise`, smoothers are
+#' penalised and their smoothing parameters are estimated: the smoother
+#' coefficients are random effects with a Gaussian prior whose precision is
+#' the smoothing-parameter weighted sum of the smoother's penalty matrices
+#' (as in 'mgcv'), integrated out with the Laplace approximation, and the
+#' log smoothing parameters maximise the marginal likelihood (as REML). `k`
+#' then only needs to be large enough. This works for `s()` (e.g. P-splines,
+#' `bs = "ps"`), `te()`, `ti()` and `t2()`; `fx = TRUE` keeps a smoother
+#' unpenalised.
+#'
 #' @param stock an `FLStock` with catch-at-age and biology.
 #' @param indices an `FLIndices` (or a single `FLIndex`/`FLIndexBiomass`).
 #' @param fmodel formula for log fishing mortality.
@@ -24,9 +35,23 @@
 #' @param fit `"assessment"` (default) also computes the parameter covariance
 #'   matrix; `"MP"` only estimates parameters.
 #' @param center logical, center each fleet's log observations before fitting.
+#' @param penalise `TRUE` to penalise the smoothers of all submodels, or the
+#'   names of the submodels to penalise, e.g. `"fmodel"` or
+#'   `c("fmodel", "srmodel")`. Default `FALSE`.
+#' @param sp.method how smoothing parameters are estimated: `"efs"`
+#'   (default) uses extended Fellner-Schall updates (Wood and Fasiolo, 2017),
+#'   which need only first and second derivatives and are fast; `"laplace"`
+#'   then refines the estimates by maximising RTMB's Laplace approximation of
+#'   the marginal likelihood directly, which is exact to that approximation
+#'   but can be much slower for large tensor-product smoothers.
 #' @param verbose logical, print optimiser output.
 #' @param control list of control options passed to [stats::nlminb()].
-#' @return an [a4aFit-class] object.
+#' @return an [a4aFit-class] object. For penalised fits, `fitSumm()`
+#'   reports the effective degrees of freedom of each smoother (`edf:`), the
+#'   marginal negative log-likelihood (`nlogl:marginal`), and `nopar` counts
+#'   unpenalised parameters plus the smoothers' effective degrees of freedom,
+#'   so that `AIC()` is a conditional AIC. The log smoothing parameters are in
+#'   `smoothing()`.
 #' @examples
 #' data(ple4)
 #' data(ple4.index)
@@ -35,6 +60,12 @@
 #'            qmodel = list(~ s(age, k = 4)))
 #' fit
 #' stk <- ple4 + fit
+#'
+#' # penalised smoothers: a generous basis, smoothness estimated
+#' pfit <- sca(ple4, ple4.index,
+#'             fmodel = ~ s(age, k = 5) + s(year, k = 30, bs = "ps"),
+#'             qmodel = list(~ s(age, k = 4)), penalise = "fmodel")
+#' smoothing(pfit)
 #' @export
 sca <- function(stock, indices,
                 fmodel = defaultFmod(stock),
@@ -43,9 +74,12 @@ sca <- function(stock, indices,
                 n1model = defaultN1mod(stock),
                 vmodel = defaultVmod(stock, indices),
                 covar = NULL, fit = c("assessment", "MP"), center = TRUE,
+                penalise = FALSE, sp.method = c("efs", "laplace"),
                 verbose = FALSE, control = list()) {
 
   fit <- match.arg(fit)
+  sp.method <- match.arg(sp.method)
+  penalise <- penaliseKeys(penalise)
   indices <- prepIndices(indices)
   covar <- as.list(covar)
 
@@ -65,8 +99,8 @@ sca <- function(stock, indices,
     idx <- FLIndices(lapply(indices, iterOf, i))
     data <- a4aData(stk, idx, fmodel = fmodel, qmodel = qmodel, vmodel = vmodel,
                     n1model = n1model, srmodel = srmodel, covar = lapply(covar, iterOf, i),
-                    center = center)
-    res <- fitA4a(data, fit = fit, verbose = verbose, control = control)
+                    center = center, penalise = penalise)
+    res <- fitA4a(data, fit = fit, verbose = verbose, control = control, sp.method = sp.method)
     c(res, list(data = data, quants = predictQuants(res, data, stk, idx)))
   })
 
@@ -89,10 +123,14 @@ sca <- function(stock, indices,
     centering = FLPar(NA, dimnames = list(params = fleets, iter = seq_len(nit))),
     models = list(fmodel = fmodel, qmodel = qmodel, vmodel = vmodel,
                   n1model = n1model, srmodel = srmodel),
-    design = first$data$designs, covar = covar)
+    design = first$data$designs, covar = covar,
+    smoothing = matrix(NA_real_, length(first$loglambda), nit,
+                       dimnames = list(names(first$loglambda), iter = seq_len(nit))))
 
-  summNames <- c("nopar", "nlogl", "maxgrad", "nobs", "convergence",
-                 paste0("nlogl:", c(fleets, if (length(first$report$nllComp) > length(fleets)) "srr")))
+  penalised <- length(first$edf) > 0
+  comps <- c(fleets, if (first$data$dat$srID > 0) "srr", if (penalised) "smooth")
+  summNames <- c("nopar", "nlogl", "maxgrad", "nobs", "convergence", paste0("nlogl:", comps),
+                 if (penalised) c("nlogl:marginal", paste0("edf:", names(first$edf))))
   out@fitSumm <- matrix(NA_real_, length(summNames), nit, dimnames = list(summNames, iter = seq_len(nit)))
 
   for (i in seq_len(nit)) {
@@ -104,11 +142,22 @@ sca <- function(stock, indices,
     out@coefficients[, i] <- f$par
     if (!is.null(f$vcov)) out@vcov[, , i] <- f$vcov
     out@centering[, i] <- f$data$centering
-    out@fitSumm[, i] <- c(length(f$par), f$nlogl, f$maxgrad, f$data$nobs, f$convergence,
-                          f$report$nllComp)
+    out@smoothing[, i] <- f$loglambda
+    out@fitSumm[, i] <- c(f$nopar, f$nlogl, f$maxgrad, f$data$nobs, f$convergence,
+                          f$report$nllComp, if (penalised) c(f$objective, f$edf))
   }
   units(out@harvest) <- "f"
   out
+}
+
+# Submodel keys (as used by a4aData) to penalise, from sca()'s `penalise`.
+penaliseKeys <- function(penalise) {
+  keys <- list(fmodel = "f", qmodel = "q", vmodel = "v", n1model = "n1", srmodel = c("r", "sra", "srb"))
+  if (isTRUE(penalise)) return(unlist(keys, use.names = FALSE))
+  if (isFALSE(penalise) || !length(penalise)) return(character(0))
+  bad <- setdiff(penalise, names(keys))
+  if (length(bad)) stop("penalise must be TRUE, FALSE or submodel names: ", paste(names(keys), collapse = ", "))
+  unlist(keys[penalise], use.names = FALSE)
 }
 
 # Indices as a named FLIndices (a single FLIndex is accepted).

@@ -16,6 +16,8 @@
 #' @slot design the submodel designs (bases), used by [predict()] and
 #'   [simulate()] to evaluate the submodels at new covariate values.
 #' @slot covar the covariates used in the fit.
+#' @slot smoothing log smoothing parameters of penalised smoothers
+#'   (penalty x iter); empty for unpenalised fits.
 #' @export
 setClass("a4aFit", contains = "FLComp",
   slots = c(call = "call",
@@ -23,7 +25,7 @@ setClass("a4aFit", contains = "FLComp",
             index = "FLQuants",
             fitSumm = "matrix",
             coefficients = "FLPar", vcov = "array", centering = "FLPar",
-            models = "list", design = "list", covar = "list"))
+            models = "list", design = "list", covar = "list", smoothing = "matrix"))
 
 #' @rdname a4aFit-class
 #' @param object an `a4aFit`.
@@ -52,6 +54,13 @@ setGeneric("fitSumm", function(object, ...) standardGeneric("fitSumm"))
 #' @rdname a4aFit-class
 #' @export
 setMethod("fitSumm", "a4aFit", function(object) object@fitSumm)
+
+#' @rdname a4aFit-class
+#' @export
+setGeneric("smoothing", function(object, ...) standardGeneric("smoothing"))
+#' @rdname a4aFit-class
+#' @export
+setMethod("smoothing", "a4aFit", function(object) object@smoothing)
 
 #' @rdname a4aFit-class
 #' @details `logLik()` returns the maximised log-likelihood (one value per

@@ -15,6 +15,8 @@ sca(
   covar = NULL,
   fit = c("assessment", "MP"),
   center = TRUE,
+  penalise = FALSE,
+  sp.method = c("efs", "laplace"),
   verbose = FALSE,
   control = list()
 )
@@ -45,12 +47,28 @@ matrix; \code{"MP"} only estimates parameters.}
 
 \item{center}{logical, center each fleet's log observations before fitting.}
 
+\item{penalise}{\code{TRUE} to penalise the smoothers of all submodels, or the
+names of the submodels to penalise, e.g. \code{"fmodel"} or
+\code{c("fmodel", "srmodel")}. Default \code{FALSE}.}
+
+\item{sp.method}{how smoothing parameters are estimated: \code{"efs"}
+(default) uses extended Fellner-Schall updates (Wood and Fasiolo, 2017),
+which need only first and second derivatives and are fast; \code{"laplace"}
+then refines the estimates by maximising RTMB's Laplace approximation of
+the marginal likelihood directly, which is exact to that approximation
+but can be much slower for large tensor-product smoothers.}
+
 \item{verbose}{logical, print optimiser output.}
 
 \item{control}{list of control options passed to \code{\link[stats:nlminb]{stats::nlminb()}}.}
 }
 \value{
-an \linkS4class{a4aFit} object.
+an \linkS4class{a4aFit} object. For penalised fits, \code{fitSumm()}
+reports the effective degrees of freedom of each smoother (\verb{edf:}), the
+marginal negative log-likelihood (\code{nlogl:marginal}), and \code{nopar} counts
+unpenalised parameters plus the smoothers' effective degrees of freedom,
+so that \code{AIC()} is a conditional AIC. The log smoothing parameters are in
+\code{smoothing()}.
 }
 \description{
 Fits the a4a statistical catch-at-age model. Fishing mortality,
@@ -62,6 +80,17 @@ smoothers (\code{s()}, \code{te()}, \code{ti()}).
 \details{
 The model is written in R and differentiated with 'RTMB'. Each iteration
 of \code{stock} and \code{indices} is fitted independently.
+
+By default smoothers are unpenalised regression splines whose flexibility
+is set by the basis dimension \code{k}. With \code{penalise}, smoothers are
+penalised and their smoothing parameters are estimated: the smoother
+coefficients are random effects with a Gaussian prior whose precision is
+the smoothing-parameter weighted sum of the smoother's penalty matrices
+(as in 'mgcv'), integrated out with the Laplace approximation, and the
+log smoothing parameters maximise the marginal likelihood (as REML). \code{k}
+then only needs to be large enough. This works for \code{s()} (e.g. P-splines,
+\code{bs = "ps"}), \code{te()}, \code{ti()} and \code{t2()}; \code{fx = TRUE} keeps a smoother
+unpenalised.
 }
 \examples{
 data(ple4)
@@ -71,4 +100,10 @@ fit <- sca(ple4, ple4.index,
            qmodel = list(~ s(age, k = 4)))
 fit
 stk <- ple4 + fit
+
+# penalised smoothers: a generous basis, smoothness estimated
+pfit <- sca(ple4, ple4.index,
+            fmodel = ~ s(age, k = 5) + s(year, k = 30, bs = "ps"),
+            qmodel = list(~ s(age, k = 4)), penalise = "fmodel")
+smoothing(pfit)
 }
