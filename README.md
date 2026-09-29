@@ -45,6 +45,9 @@ stk <- ple4 + fit
 AIC(fit)
 ```
 
+See [`examples/`](examples) for worked examples with plots: getting started,
+smoothers, covariates and stock-recruitment models.
+
 ## Code layout
 
 | file | contents |
