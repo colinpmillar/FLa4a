@@ -24,6 +24,7 @@ Suggests:
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Config/testthat/edition: 3
+Config/Needs/dev: devtools, roxygen2
 Collate:
   'FLa4a-package.R'
   'formula.R'

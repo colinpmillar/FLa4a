@@ -19,9 +19,11 @@ The `.devcontainer/` folder uses the prebuilt
 [Rocker](https://rocker-project.org) image `ghcr.io/rocker-org/devcontainer/r-ver:4.5`,
 so nothing is built locally (this works with Docker Desktop on Windows). Open
 the repository in VS Code and choose *Dev Containers: Reopen in Container*, or
-open it in GitHub Codespaces. On first start `.devcontainer/setup.R` installs
-RTMB, FLCore, mgcv, testthat, roxygen2 and devtools from binaries and installs
-FLa4a. Then:
+open it in GitHub Codespaces. On first start `.devcontainer/setup.R` uses
+[pak](https://pak.r-lib.org) to install the requirements declared in
+`DESCRIPTION` (imports, `Suggests` and the dev tools listed under
+`Config/Needs/dev`: devtools and roxygen2) as binaries, together with the
+system libraries they need, and then installs FLa4a. Then:
 
 ```r
 devtools::load_all()   # or devtools::test(), devtools::check()
