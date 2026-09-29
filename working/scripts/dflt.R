@@ -1,0 +1,6 @@
+args <- commandArgs(TRUE)
+.libPaths(c(if (args[1] == "ref") "/tmp/claude-0/reflib" else "~/Rlib", .libPaths()))
+suppressMessages(library(FLa4a)); data(ple4); data(ple4.indices)
+fit <- sca(ple4, ple4.indices[c("BTS-Combined (all)", "SNS")])
+print(fitSumm(fit)[1:6,])
+print(fit@call$fmodel); print(defaultFmod(ple4))

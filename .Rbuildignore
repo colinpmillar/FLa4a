@@ -5,3 +5,4 @@
 ^\.gitattributes$
 ^src$
 ^docs$
+^working$

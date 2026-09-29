@@ -1,0 +1,15 @@
+suppressMessages(library(FLa4a)); data(ple4); data(ple4.indices)
+idx <- FLa4a:::prepIndices(ple4.indices[c("BTS-Combined (all)", "SNS")])
+d <- FLa4a:::a4aData(ple4, idx, ~ te(age, year, k = c(6, 30), bs = "ps"), list(~ s(age, k = 5), ~ s(age, k = 4)),
+  defaultVmod(ple4, idx), defaultN1mod(ple4), ~ bevholt(CV = 0.3), penalise = c("f", "q"))
+tm <- function(label, expr) { t0 <- Sys.time(); r <- expr; cat(sprintf("%-26s %6.3fs\n", label, as.numeric(Sys.time() - t0, units = "secs"))); invisible(r) }
+o <- RTMB::MakeADFun(function(p) FLa4a:::a4aNll(p, d$dat), d$par, silent = TRUE)
+set.seed(1)
+p <- o$par + rnorm(length(o$par), 0, 0.1)
+nb <- length(p) - length(d$par$loglambda)
+H1 <- tm("dense AD Hessian", o$he(p)[1:nb, 1:nb])
+hf <- tm("build sparse Hessian tape", FLa4a:::hessianFun(d))
+H2 <- tm("sparse Hessian (1st)", hf(p))
+H2 <- tm("sparse Hessian (2nd)", hf(p))
+cat("max abs difference", max(abs(H1 - H2)), " relative", max(abs(H1 - H2)) / max(abs(H1)), "\n")
+cat("objective at p equal after refactor check:", o$fn(p), "\n")

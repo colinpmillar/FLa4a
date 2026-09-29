@@ -1,0 +1,6 @@
+.libPaths(c("/tmp/claude-0/reflib", .libPaths()))
+suppressMessages(library(FLa4a))
+data(ple4); data(ple4.index)
+fit <- sca(ple4, ple4.index, fmodel=~factor(age)+factor(year), qmodel=list(~factor(age)), fit="assessment")
+print(fitSumm(fit))
+print(coef(fit)@stkmodel[1:5])

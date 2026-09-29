@@ -1,0 +1,5 @@
+args <- commandArgs(TRUE)
+.libPaths(c(if (args[1] == "ref") "/tmp/claude-0/reflib" else "~/Rlib", .libPaths()))
+suppressMessages(library(FLa4a)); data(ple4); data(ple4.index)
+for (sr in c(~ricker(CV=0.3), ~hockey(CV=0.3), ~bevholtSV(CV=0.3, SPR0=2)))
+  cat(deparse(sr), fitSumm(suppressWarnings(sca(ple4, ple4.index, fmodel=~s(age,k=5)+s(year,k=20), qmodel=list(~s(age,k=4)), srmodel=sr)))[c("nlogl","convergence"),1], "\n")
