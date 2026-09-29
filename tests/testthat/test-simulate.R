@@ -94,3 +94,10 @@ test_that("covariates with iterations are matched to data iterations in sca", {
   expect_equal(c(stock.n(f2)[, , , , , 1]), c(stock.n(f1)), tolerance = 1e-6)
   expect_false(isTRUE(all.equal(c(coef(f2)[, 1]), c(coef(f2)[, 2]))))
 })
+
+test_that("derivedCI gives intervals for the first-year numbers (n1)", {
+  ci <- derivedCI(fit, ple4, ple4.index, quantities = "n1")
+  expect_equal(ci$age, as.numeric(dimnames(stock.n(fit))$age)[-1])
+  expect_equal(ci$estimate, c(stock.n(fit)[-1, 1]), tolerance = 1e-6)
+  expect_true(all(ci$lower < ci$estimate & ci$upper > ci$estimate))
+})

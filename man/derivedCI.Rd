@@ -9,7 +9,7 @@ derivedCI(
   stock,
   indices,
   level = 0.95,
-  quantities = c("ssb", "fbar", "rec", "harvest")
+  quantities = c("ssb", "fbar", "rec", "harvest", "n1")
 )
 }
 \arguments{
@@ -21,17 +21,18 @@ derivedCI(
 
 \item{level}{confidence level.}
 
-\item{quantities}{any of \code{"ssb"}, \code{"fbar"}, \code{"rec"} and \code{"harvest"}.}
+\item{quantities}{any of \code{"ssb"}, \code{"fbar"}, \code{"rec"}, \code{"harvest"} and
+\code{"n1"} (numbers at age in the first year, ages after the first).}
 }
 \value{
 a \code{data.frame} with columns \code{quantity}, \code{age} (\code{NA} except for
-\code{harvest}), \code{year}, \code{estimate}, \code{lower}, \code{upper} and \code{se} (the standard
+\code{harvest} and \code{n1}), \code{year}, \code{estimate}, \code{lower}, \code{upper} and \code{se} (the standard
 error of the log quantity). Intervals are symmetric on the log scale.
 }
 \description{
 Delta-method confidence intervals for spawning stock biomass, mean
-fishing mortality over the \code{fbar} ages, recruitment and fishing mortality
-at age. The quantities are computed on the log scale as functions of the
+fishing mortality over the \code{fbar} ages, recruitment, fishing mortality
+at age and the numbers at age in the first year (the \code{n1model}). The quantities are computed on the log scale as functions of the
 coefficients, their Jacobian is taken by automatic differentiation, and
 the intervals use the coefficients' covariance matrix
 (\code{fit = "assessment"}). For penalised smoothers this is their posterior
