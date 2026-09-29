@@ -20,11 +20,12 @@ from `helpers.R` does the same.
 | `03-covariates.R` | year-only and age x year covariates via `covar`; linear, smooth and varying-coefficient effects; `breakpts()` |
 | `04-stock-recruitment.R` | Beverton-Holt, Ricker, hockey stick and geomean relationships; fitted curves; the effect of the CV |
 | `05-simulate-covariates.R` | `predict()` and `simulate()` from a covariate model: predictive checks, covariate scenarios (including per-simulation covariates), parameter uncertainty, and refitting simulated data to check an effect is recoverable |
+| `06-penalised-smoothers.R` | penalised 1D and 2D smoothers with estimated smoothing parameters: unpenalised vs penalised, Fellner-Schall vs Laplace, uncertainty, and a 2D tensor-product F surface |
 | `helpers.R` | base-graphics plotting helpers used by the scripts |
 
 The plots use base R graphics only, so no packages beyond FLa4a's own
-dependencies are needed. Scripts 01-04 take 10-30 seconds each; 05 takes 1-2 minutes.
+dependencies are needed. Scripts 01-04 take 10-30 seconds each; 05 and 06 take 1-3 minutes.
 
-The smoothers here are unpenalised regression splines: the basis size `k`
-fixes their flexibility. These scripts are the baseline for the planned
-penalised smoothers, which will estimate the smoothness instead.
+In 01-05 the smoothers are unpenalised regression splines, whose basis size
+`k` fixes their flexibility; 06 shows penalised smoothers, whose smoothness
+is estimated.
