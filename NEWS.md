@@ -1,5 +1,16 @@
 # FLa4a 2.0.0.9000
 
+* Simulated data with known truth: `simStock()` (with `simSurvey()`) and
+  ready-made `simScenario()`s ("simple", "smooth", "covariate", "sr",
+  "biomass"), each with the submodels to fit them. The population
+  dynamics are implemented independently of the model.
+* `derivedCI()`: delta-method confidence intervals for SSB, Fbar,
+  recruitment and F at age, with Jacobians from automatic differentiation.
+* Examples moved to `src/examples/`, with new examples on confidence
+  interval coverage and simulated scenarios. Coverage of 95% intervals is
+  about 0.89 for correctly specified models, mainly because maximum
+  likelihood underestimates the observation variances.
+
 * Penalised smoothers: `sca(..., penalise = TRUE)` (or naming submodels, e.g.
   `penalise = "fmodel"`) penalises `s()`, `te()`, `ti()` and `t2()` smoothers
   and estimates their smoothing parameters by maximising the Laplace

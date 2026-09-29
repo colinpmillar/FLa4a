@@ -47,29 +47,14 @@ a4aNllEta <- function(eta, dat, report = FALSE) {
   nY <- dat$nY
   nC <- nA * nY
 
-  #------------------------------------------------------------------
-  # submodels
-  #------------------------------------------------------------------
-  logF <- matrix(eta$logF, nA, nY)
+  pop <- population(eta, dat)
+  logF <- pop$logF
+  logN <- pop$logN
+  F <- pop$F
+  M <- pop$M
+  Z <- pop$Z
   logQ <- eta$logQ
   logV <- eta$logV
-  M <- matrix(dat$M, nA, nY)
-  F <- exp(logF)
-  Z <- F + M
-
-  #------------------------------------------------------------------
-  # population
-  #------------------------------------------------------------------
-  logN <- matrix(0, nA, nY)
-  logN[1, ] <- eta$logR
-  if (nA > 1) {
-    logN[-1, 1] <- eta$logN1
-    for (y in seq_len(nY)[-1]) {
-      logN[-1, y] <- logN[-nA, y - 1] - Z[-nA, y - 1]
-      if (dat$plusgroup)
-        logN[nA, y] <- logspace_add(logN[nA, y], logN[nA, y - 1] - Z[nA, y - 1])
-    }
-  }
 
   #------------------------------------------------------------------
   # predicted observations
@@ -133,6 +118,30 @@ a4aNllEta <- function(eta, dat, report = FALSE) {
     REPORT(sdObs)
   }
   nllComp
+}
+
+# Fishing and natural mortality and numbers at age (age x year matrices, log
+# numbers on the model's centred scale) given the linear predictors.
+population <- function(eta, dat) {
+  "[<-" <- ADoverload("[<-")
+  nA <- dat$nA
+  nY <- dat$nY
+  logF <- matrix(eta$logF, nA, nY)
+  M <- matrix(dat$M, nA, nY)
+  F <- exp(logF)
+  Z <- F + M
+
+  logN <- matrix(0, nA, nY)
+  logN[1, ] <- eta$logR
+  if (nA > 1) {
+    logN[-1, 1] <- eta$logN1
+    for (y in seq_len(nY)[-1]) {
+      logN[-1, y] <- logN[-nA, y - 1] - Z[-nA, y - 1]
+      if (dat$plusgroup)
+        logN[nA, y] <- logspace_add(logN[nA, y], logN[nA, y - 1] - Z[nA, y - 1])
+    }
+  }
+  list(logF = logF, F = F, M = M, Z = Z, logN = logN)
 }
 
 # A function returning the Hessian of the negative log-likelihood with

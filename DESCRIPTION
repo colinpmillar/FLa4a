@@ -35,4 +35,6 @@ Collate:
   'a4aFit-class.R'
   'sca.R'
   'simulate.R'
+  'uncertainty.R'
+  'simdata.R'
 RoxygenNote: 7.3.1
