@@ -60,6 +60,8 @@ setMethod("logLik", "a4aFit", function(object, ...) {
             class = "logLik")
 })
 
+#' @rdname a4aFit-class
+#' @export
 setMethod("show", "a4aFit", function(object) {
   cat("a4aFit:", object@name, "\n")
   cat("  ages:", paste(range(object)[c("min", "max")], collapse = " - "),
@@ -69,6 +71,11 @@ setMethod("show", "a4aFit", function(object) {
   print(t(object@fitSumm[c("nopar", "nlogl", "maxgrad", "nobs", "convergence"), , drop = FALSE]))
   invisible(object)
 })
+
+#' @rdname a4aFit-class
+#' @param x an `a4aFit`.
+#' @export
+setMethod("print", "a4aFit", function(x, ...) show(x))
 
 #' Update stocks and indices with fit results
 #'

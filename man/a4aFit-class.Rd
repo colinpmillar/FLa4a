@@ -12,6 +12,8 @@
 \alias{fitSumm}
 \alias{fitSumm,a4aFit-method}
 \alias{logLik,a4aFit-method}
+\alias{show,a4aFit-method}
+\alias{print,a4aFit-method}
 \title{The a4aFit class}
 \usage{
 \S4method{stock.n}{a4aFit}(object)
@@ -31,11 +33,17 @@ fitSumm(object, ...)
 \S4method{fitSumm}{a4aFit}(object)
 
 \S4method{logLik}{a4aFit}(object, ...)
+
+\S4method{show}{a4aFit}(object)
+
+\S4method{print}{a4aFit}(x, ...)
 }
 \arguments{
 \item{object}{an \code{a4aFit}.}
 
 \item{catch, ...}{not used.}
+
+\item{x}{an \code{a4aFit}.}
 }
 \description{
 Results of a statistical catch-at-age fit with \code{\link[=sca]{sca()}}.

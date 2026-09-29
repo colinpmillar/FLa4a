@@ -49,6 +49,8 @@ test_that("fitted quantities are consistent", {
 
   expect_equal(dim(vcov(fit))[1:2], rep(fitSumm(fit)["nopar", 1], 2))
   expect_false(anyNA(vcov(fit)))
+  expect_output(print(fit), "a4aFit")
+  expect_lt(length(capture.output(print(fit))), 20)
   expect_equal(c(AIC(fit)), 2 * fitSumm(fit)["nopar", 1] + 2 * fitSumm(fit)["nlogl", 1])
 })
 
