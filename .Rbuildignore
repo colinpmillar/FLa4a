@@ -2,3 +2,4 @@
 ^NEWS\.md$
 ^\.github$
 ^\.devcontainer$
+^\.gitattributes$

@@ -1,15 +1,8 @@
 {
   "name": "FLa4a (RTMB)",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "REditorSupport.r"
-      ]
-    }
-  },
-  "postCreateCommand": "R CMD INSTALL --no-docs .",
-  "remoteUser": "root"
+  // Prebuilt Rocker image: R 4.5, compilers, the R language server and the
+  // VS Code R extension. Nothing is built locally.
+  "image": "ghcr.io/rocker-org/devcontainer/r-ver:4.5",
+  // Installs package dependencies (binaries from Posit Package Manager) and FLa4a
+  "postCreateCommand": "Rscript .devcontainer/setup.R"
 }

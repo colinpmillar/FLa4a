@@ -15,14 +15,19 @@ remotes::install_github("colinpmillar/FLa4a", ref = "claude/peaceful-babbage-if9
 
 ### Dev container
 
-The `.devcontainer/` folder defines an R 4.5 environment with RTMB, FLCore,
-mgcv, testthat, roxygen2 and devtools installed. Open the repository in VS Code
-and choose *Dev Containers: Reopen in Container* (or open it in GitHub
-Codespaces). The package is installed when the container is created. Then:
+The `.devcontainer/` folder uses the prebuilt
+[Rocker](https://rocker-project.org) image `ghcr.io/rocker-org/devcontainer/r-ver:4.5`,
+so nothing is built locally (this works with Docker Desktop on Windows). Open
+the repository in VS Code and choose *Dev Containers: Reopen in Container*, or
+open it in GitHub Codespaces. On first start `.devcontainer/setup.R` installs
+RTMB, FLCore, mgcv, testthat, roxygen2 and devtools from binaries and installs
+FLa4a. Then:
 
 ```r
 devtools::load_all()   # or devtools::test(), devtools::check()
 ```
+
+On Windows, `.gitattributes` keeps line endings as LF inside the container.
 
 ## Usage
 
