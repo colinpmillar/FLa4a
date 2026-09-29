@@ -23,6 +23,7 @@ from `helpers.R` does the same.
 | `06-penalised-smoothers.R` | penalised 1D and 2D smoothers with estimated smoothing parameters: unpenalised vs penalised, Fellner-Schall vs Laplace, uncertainty, and a 2D tensor-product F surface |
 | `07-coverage.R` | bias and coverage of 95% confidence intervals (`derivedCI()`) over 100 simulated data sets fitted with the correct model |
 | `08-simulated-scenarios.R` | each `simScenario()` fitted and compared with the truth: separable, smooth (also penalised), covariate, stock-recruitment and biomass-survey data |
+| `09-reml-coverage.R` | ML versus REML: bias of the observation variances and coverage of 95% intervals, for unpenalised, penalised 1D and penalised 2D models (about 15 minutes) |
 | `helpers.R` | base-graphics plotting helpers used by the scripts |
 
 The plots use base R graphics only, so no packages beyond FLa4a's own
