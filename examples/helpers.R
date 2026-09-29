@@ -108,3 +108,26 @@ fitTable <- function(fits) {
   tab$dBIC <- tab$BIC - min(tab$BIC)
   round(tab[order(tab$AIC), c("npar", "nlogl", "AIC", "dAIC", "BIC", "dBIC", "maxgrad", "converged")], 3)
 }
+
+# Median and 90% band over simulations (iterations) of one age of an
+# FLQuant, for several scenarios, with optional observed points.
+plotEnvelope <- function(sims, age = 1, obs = NULL, main = "", ylab = "") {
+  cols <- fitCols(length(sims))
+  q <- lapply(sims, function(x) {
+    m <- matrix(c(x[as.character(age), ]), nrow = dim(x)[2])
+    t(apply(m, 1, quantile, c(0.05, 0.5, 0.95), na.rm = TRUE))
+  })
+  years <- as.numeric(dimnames(sims[[1]])$year)
+  ylim <- range(unlist(q), if (!is.null(obs)) c(obs[as.character(age), ]), na.rm = TRUE)
+  plot(NULL, xlim = range(years), ylim = ylim, las = 1, xlab = "", ylab = ylab, main = main)
+  for (i in seq_along(q)) {
+    ok <- !is.na(q[[i]][, 2])
+    polygon(c(years[ok], rev(years[ok])), c(q[[i]][ok, 1], rev(q[[i]][ok, 3])),
+            col = grDevices::adjustcolor(cols[i], 0.25), border = NA)
+    lines(years[ok], q[[i]][ok, 2], col = cols[i], lwd = 2)
+  }
+  if (!is.null(obs)) points(years, c(obs[as.character(age), ]), pch = 16, cex = 0.6)
+  legend("topleft", c(names(sims), if (!is.null(obs)) "observed"), col = c(cols, "black"),
+         lwd = c(rep(2, length(sims)), NA), pch = c(rep(NA, length(sims)), if (!is.null(obs)) 16),
+         bty = "n", cex = 0.8)
+}
